@@ -1,11 +1,20 @@
+#ifndef TRADUCTOR_H
+#define TRADUCTOR_H
+
+#include <stdint.h>
 #define TRUE 1
 #define FALSE 0
 typedef uint8_t bool;
 
+static int err;
 enum ERR
 {
    NO_ERR = 0,
-   OP_INVALIDO
+   NUM_INVALIDO,
+   REG_INVALIDO,
+   MNEM_DESCONOCIDO,
+   SIMBOLO_DESCONOCIDO,
+   SIMBOLO_DUPLICADO
 };
 
 // tipos de operando.
@@ -30,25 +39,25 @@ typedef struct
 {
    char *nombre;
    int val;
-} simbolo;
+} smb_t;
 
 // tipos lista de simbolos.
-typedef struct node
+typedef struct node_t
 {
-   simbolo smb;
-   struct node *sig;
-} node;
-typedef node *smb_list;
+   smb_t smb;
+   struct node_t *sig;
+} node_t;
+typedef node_t* smb_list_t;
 
 // dado cadenas representando un mnemonico, y los dos operadores posibles, traduce la instruccion a codigo de maquina
 // y lo devuelve en *val.
-void traducir_instruccion(char *mnemo, char *op1, char *op2, int *val);
+int traducir_instruccion(char *mnemo, char *op1, char *op2, smb_list_t simbolos);
 
 // dado un cadena que contiene un mnemonico, devuelve el valor numerico de esta y su tipo correspondiente.
 void traducir_mnemo(char *mnemo, int *val, TIPO_INSTRUCCION *tipo);
 
 // dado una cadena que representa un operando(ej: "24", "[EDX+2]", "%2"), devuelve el valor y el tipo.
-void traducir_operando(char *op, int *val, TIPO_OPERANDO *tipo, smb_list simbolos);
+void traducir_operando(char *op, int *val, TIPO_OPERANDO *tipo, smb_list_t simbolos);
 
 // dado una cadena que representa un registro(ej: "EAX", "AH", "CC") devuelve el valor.
 int reg_to_int(char *reg);
@@ -57,13 +66,15 @@ int reg_to_int(char *reg);
 int str_to_int(char *cad);
 
 // agrega un simbolo a la lista de simbolos.
-void agregar_simbolo(smb_list *l, simbolo s);
+void agregar_simbolo(smb_list_t *l, smb_t smb);
 
 // verifica si existe un simbolo con ese nombre, y si esta lo devuelve en *smb.
-bool buscar_simbolo(smb_list simbolos, char *nombre, simbolo *smb);
+bool buscar_simbolo(smb_list_t simbolos, char *nombre, smb_t *smb);
 
 // verifica si un caracter es un digito decimal(0-9).
 bool es_digito(char c);
 
 // verifica si un caracter es una letra. Solo verifica si es una letra mayuscula, ya que todos los valores se cambian a mayuscula.
 bool es_letra(char c);
+
+#endif
