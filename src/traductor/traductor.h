@@ -2,20 +2,11 @@
 #define TRADUCTOR_H
 
 #include <stdint.h>
+#include "error.h"
+
 #define TRUE 1
 #define FALSE 0
 typedef uint8_t bool;
-
-static int err;
-enum ERR
-{
-   NO_ERR = 0,
-   NUM_INVALIDO,
-   REG_INVALIDO,
-   MNEM_DESCONOCIDO,
-   SIMBOLO_DESCONOCIDO,
-   SIMBOLO_DUPLICADO
-};
 
 // tipos de operando.
 typedef enum TIPO_OPERANDO
@@ -51,19 +42,19 @@ typedef node_t* smb_list_t;
 
 // dado cadenas representando un mnemonico, y los dos operadores posibles, traduce la instruccion a codigo de maquina
 // y lo devuelve en *val.
-int traducir_instruccion(char *mnemo, char *op1, char *op2, smb_list_t simbolos);
+error_t traducir_instruccion(char *mnemo, char *op1, char *op2, smb_list_t simbolos, int *val);
 
 // dado un cadena que contiene un mnemonico, devuelve el valor numerico de esta y su tipo correspondiente.
-void traducir_mnemo(char *mnemo, int *val, TIPO_INSTRUCCION *tipo);
+error_t traducir_mnemo(char *mnemo, int *val, TIPO_INSTRUCCION *tipo);
 
 // dado una cadena que representa un operando(ej: "24", "[EDX+2]", "%2"), devuelve el valor y el tipo.
-void traducir_operando(char *op, int *val, TIPO_OPERANDO *tipo, smb_list_t simbolos);
+error_t traducir_operando(char *op, int *val, TIPO_OPERANDO *tipo, smb_list_t simbolos);
 
 // dado una cadena que representa un registro(ej: "EAX", "AH", "CC") devuelve el valor.
-int reg_to_int(char *reg);
+error_t reg_to_int(char *reg, int *val);
 
 // dado una cadena que representa un valor numerico(ej: "%32", "#45", "-315"), devuelve un int con el valor.
-int str_to_int(char *cad);
+error_t str_to_int(char *cad, int *val);
 
 // agrega un simbolo a la lista de simbolos.
 void agregar_simbolo(smb_list_t *l, smb_t smb);

@@ -8,9 +8,12 @@
 
 #include "consts.h"
 
+//TODO: que traducir operando se fije si la cadena que entra es NULL, error falta operando.
 
-int traducir_instruccion(char *mnemo, char *op1, char *op2, smb_list_t simbolos)
+error_t traducir_instruccion(char *mnemo, char *op1, char *op2, smb_list_t simbolos, int *val)
 {
+   error_t e;
+
    TIPO_INSTRUCCION tipo;
    int val_mnemo;
    traducir_mnemo(mnemo, &val_mnemo, &tipo);
@@ -20,27 +23,36 @@ int traducir_instruccion(char *mnemo, char *op1, char *op2, smb_list_t simbolos)
       //verificar truncamiento y ver signo?
       TIPO_OPERANDO tipo_op1, tipo_op2;
       int val_op1, val_op2;
-      traducir_operando(op1, &val_op1, &tipo_op1, simbolos);
-      traducir_operando(op2, &val_op2, &tipo_op2, simbolos);
-      return (val_mnemo<<28)|(tipo_op1<<26)|(tipo_op2<<24)|(val_op1<<12)|val_op2;
+      
+      e = traducir_operando(op1, &val_op1, &tipo_op1, simbolos);
+      e = traducir_operando(op2, &val_op2, &tipo_op2, simbolos);
+
+      *val = (val_mnemo<<28)|(tipo_op1<<26)|(tipo_op2<<24)|(val_op1<<12)|val_op2;
+      //return (val_mnemo << 28) | ((tipo_op1 << 26) & 0x0C000000) | ((tipo_op2 << 24) & 0x03000000) |
+         //             ((val_op1 << 12) & 0x00FFF000) | (val_op2 & 0x00000FFF);
+      break;
    }
    case UN_OP:{
       TIPO_OPERANDO tipo_op;
       int val_op;
-      traducir_operando(op1, &val_op, &tipo_op, simbolos);
-      return (15<<28)|(val_mnemo<<24)|(tipo_op<<22)|val_op;
+      e = traducir_operando(op1, &val_op, &tipo_op, simbolos);
+      *val = (15<<28)|(val_mnemo<<24)|(tipo_op<<22)|val_op;
+      break;
+
    }
    case NO_OP:{
-      return (255<<24)|(val_mnemo<<20);
+      *val = (255<<24)|(val_mnemo<<20);
+      break;
    }
    }
+   return e;
 }
 
-void traducir_mnemo(char *mnemo, int *val, TIPO_INSTRUCCION *tipo)
+error_t traducir_mnemo(char *mnemo, int *val, TIPO_INSTRUCCION *tipo)
 {
    *val = get_mnemo_val(mnemo);
    if(*val == -1)
-      err = MNEM_DESCONOCIDO;
+      return MNEM_DESCONOCIDO;
    
    if(*val < 16){
       *tipo = DOS_OP;
@@ -49,22 +61,38 @@ void traducir_mnemo(char *mnemo, int *val, TIPO_INSTRUCCION *tipo)
    }else{
       *tipo = NO_OP;
    }
+
+   return NO_ERR;
 }
 
-void traducir_operando(char *op, int *val, TIPO_OPERANDO *tipo, smb_list_t simbolos)
+error_t traducir_operando(char *op, int *val, TIPO_OPERANDO *tipo, smb_list_t simbolos)
 {
+   error_t e;
    char pri = op[0];
    if (pri == '[')
    {
-      op++; // sacar '['
+     
+      //verificar que cierre corchete.
+      int len = strlen(op);
+      if (op[len - 1] != ']'){
+         return CORCHETE_SIN_CERRAR;
+      }
+      //eliminar '[' y ']'
+      //TODO: deberia verificar q strlen(op) > 2??
+      memmove(op,op+1,len-2);
+      op[len-2] = '\0';
+
+   
       if (es_letra(op[0]))
       {
          // operador indirecto
          // intenta divir la cadena en el +/-
+         // TODO: cambiar el valor a neg si es -.
          int reg_val, offset_val = 0;
          char *reg = strtok(op, "+-");
-         reg_val = reg_to_int(reg);
+         e = reg_to_int(reg, &reg_val);
          char *offset = strtok(NULL, "+-");
+         if(offset)
          // si se pudo dividir leer el offset
          if (offset)
          {
@@ -74,14 +102,14 @@ void traducir_operando(char *op, int *val, TIPO_OPERANDO *tipo, smb_list_t simbo
                smb_t smb;
                if (!buscar_simbolo(simbolos, offset, &smb))
                {
-                  err = SIMBOLO_DESCONOCIDO;
+                  return SIMBOLO_DESCONOCIDO;
                }
                offset_val = smb.val;
             }
             else
             {
                // offset es un numero
-               offset_val = str_to_int(offset);
+               e = str_to_int(offset, &offset_val);
             }
          }
 
@@ -91,12 +119,14 @@ void traducir_operando(char *op, int *val, TIPO_OPERANDO *tipo, smb_list_t simbo
       else
       {
          // operador directo
-         *val = str_to_int(op);
+         //TODO: se puede poner simbolos??
+         e = str_to_int(op, val);
          *tipo = DIRECTO;
       }
    }
    else if (es_letra(pri))
    {
+
       // reg o simbolo
       smb_t smb;
       if (buscar_simbolo(simbolos, op, &smb))
@@ -106,25 +136,28 @@ void traducir_operando(char *op, int *val, TIPO_OPERANDO *tipo, smb_list_t simbo
       }
       else
       {
-         *val = reg_to_int(op);
+
+         e = reg_to_int(op, val);
          *tipo = REGISTRO;
       }
    }
    else
    {
-      *val = str_to_int(op);
       *tipo = INMEDIATO;
+      e = str_to_int(op, val);
    }
+   return e;
 }
 
-int str_to_int(char *cad)
+error_t str_to_int(char *cad, int *val)
 {
    int base = 10;
    switch (cad[0])
    {
    case '\'':
       // lee un caracter
-      return cad[1];
+      *val = cad[1];
+      return NO_ERR;
    case '%':
       // lee un numero en hexadecimal, elimina el caracter %
       base = 16;
@@ -145,20 +178,21 @@ int str_to_int(char *cad)
    
    char* desp;
    errno = 0;
-   int val = strtol(cad, &desp, base);
+   *val = strtol(cad, &desp, base);
 
    // verificar errores strtol
    if(cad == desp || errno || *desp != '\0')
-      err = NUM_INVALIDO;
+      return NUM_INVALIDO;
    
-   return val;
+   return NO_ERR;
 }
 
-int reg_to_int(char *reg)
+error_t reg_to_int(char *reg, int *val)
 {
    int aux = get_reg_val(reg);
    if(aux != -1){
-      return aux;
+      *val = aux;
+      return NO_ERR;
    }
 
    switch (strlen(reg))
@@ -166,13 +200,20 @@ int reg_to_int(char *reg)
    case 3:
       // registro completo  EAX, EBX, ECX, -> 0x0A, 0x0B, 0x0C ...
       // convierte el valor del caracter del medio ( eAx, eBx) a su valor en decimal: 'a'-55 = 10 = 0x0A, 'b'-55 = 11 = 0x0B ...
-      return (reg[1] - 55);
+      if(!(reg[1]>='A' && reg[1]<='F')){
+         return REG_INVALIDO;
+      }
+      *val = reg[1] - 55;
+      return NO_ERR;
    case 2:
    {
       // registro parcial AX, AL, BH
       // Se fija el ultimo caracter para determinar el byte mas significativo
       //  X-> 0x30, H -> 0x20, L-> 0x10
       // luego convierte el primer caracter de la misma manera que en el caso del registro completo y combina los numeros.
+      if(!(reg[0]>='A' && reg[0]<='F')){
+         return REG_INVALIDO;
+      }
       uint8_t pre = 0;
       switch (reg[1])
       {
@@ -186,12 +227,13 @@ int reg_to_int(char *reg)
          pre = 0x10;
          break;
       default:
-         err = REG_INVALIDO;
+         return REG_INVALIDO;
       }
-      return (reg[0] - 55) | pre;
+       *val = (reg[0] - 55) | pre;
+       return NO_ERR;
    }
    default:
-      err = REG_INVALIDO;
+      return REG_INVALIDO;
    }
 }
 
@@ -207,6 +249,7 @@ bool es_letra(char c)
 
 bool buscar_simbolo(smb_list_t simbolos, char *nombre, smb_t *smb)
 {
+
    node_t *aux = simbolos;
    while (aux)
    {

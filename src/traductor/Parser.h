@@ -1,7 +1,18 @@
-#ifndef PARSER_H_INCLUDED
-#define PARSER_H_INCLUDED
+#ifndef PARSER_H
+#define PARSER_H
 
-char **parseline(char *line);
-void freeline(char **parsed);
+enum PARSED{
+   LABEL = 0,
+   MNEMO,
+   OP1,
+   OP2,
+   COMENT,
+   SEG,
+   SEG_SIZE,
+   CONST,
+   CONST_VAL
+};
+char **parse_line(const char *line);
+void free_line(char **parsed);
 
-#endif // PARSER_H_INCLUDED
+#endif
