@@ -54,9 +54,9 @@ error_t traducir_mnemo(char *mnemo, int *val, TIPO_INSTRUCCION *tipo)
    if(*val == -1)
       return MNEM_DESCONOCIDO;
    
-   if(*val < 16){
+   if(*val < 0xF0){
       *tipo = DOS_OP;
-   }else if(*val < 254){
+   }else if(*val < 0xFF0){
       *tipo = UN_OP;
    }else{
       *tipo = NO_OP;
@@ -104,7 +104,7 @@ error_t traducir_operando(char *op, int *val, TIPO_OPERANDO *tipo, smb_list_t si
                {
                   return SIMBOLO_DESCONOCIDO;
                }
-               offset_val = smb.val;
+               e = valor_simbolo(smb, &offset_val);
             }
             else
             {
@@ -131,7 +131,7 @@ error_t traducir_operando(char *op, int *val, TIPO_OPERANDO *tipo, smb_list_t si
       smb_t smb;
       if (buscar_simbolo(simbolos, op, &smb))
       {
-         *val = smb.val;
+         e = valor_simbolo(smb, val);
          *tipo = INMEDIATO;
       }
       else
@@ -245,6 +245,13 @@ bool es_digito(char c)
 bool es_letra(char c)
 {
    return c >= 'A' && c <= 'Z';
+}
+
+error_t valor_simbolo(smb_t smb, int *val){
+   if (str_to_int(smb.val, val) != NO_ERR)
+      return SIMBOLO_VALOR_INVALIDO;
+
+   return NO_ERR;
 }
 
 bool buscar_simbolo(smb_list_t simbolos, char *nombre, smb_t *smb)

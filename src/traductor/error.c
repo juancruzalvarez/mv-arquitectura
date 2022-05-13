@@ -21,6 +21,9 @@ void print_err_msg(error_t e){
    case CORCHETE_SIN_CERRAR:
      printf("Se esperaba ']'");
      break;
+   case SIMBOLO_VALOR_INVALIDO:
+     printf("El valor del simbolo es invalido.");
+     break;
    default:
      printf("Error desconocido.");
    }

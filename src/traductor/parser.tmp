@@ -1,0 +1,1 @@
+LABL: MOV CX, [EAX+3]

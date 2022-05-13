@@ -29,7 +29,7 @@ typedef enum TIPO_INSTRUCCION
 typedef struct
 {
    char *nombre;
-   int val;
+   char *val;
 } smb_t;
 
 // tipos lista de simbolos.
@@ -55,6 +55,9 @@ error_t reg_to_int(char *reg, int *val);
 
 // dado una cadena que representa un valor numerico(ej: "%32", "#45", "-315"), devuelve un int con el valor.
 error_t str_to_int(char *cad, int *val);
+
+//devuelve el valor guardado por el simbolo.
+error_t valor_simbolo(smb_t smb, int *val);
 
 // agrega un simbolo a la lista de simbolos.
 void agregar_simbolo(smb_list_t *l, smb_t smb);
