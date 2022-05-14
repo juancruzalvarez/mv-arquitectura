@@ -20,25 +20,25 @@ error_t traducir_instruccion(char *mnemo, char *op1, char *op2, smb_list_t simbo
    {
    case DOS_OP:
    {
-      // TODO: verificar truncamiento y ver signo?
       TIPO_OPERANDO tipo_op1, tipo_op2;
       int val_op1, val_op2;
 
       IF_ERR_RETURN(traducir_operando(op1, &val_op1, &tipo_op1, simbolos));
       IF_ERR_RETURN(traducir_operando(op2, &val_op2, &tipo_op2, simbolos));
 
-      *val = (val_mnemo << 28) | (tipo_op1 << 26) | (tipo_op2 << 24) | (val_op1 << 12) | val_op2;
-      // return (val_mnemo << 28) | ((tipo_op1 << 26) & 0x0C000000) | ((tipo_op2 << 24) & 0x03000000) |
-      //              ((val_op1 << 12) & 0x00FFF000) | (val_op2 & 0x00000FFF);
+      //*val = (val_mnemo << 28) | (tipo_op1 << 26) | (tipo_op2 << 24) | (val_op1 << 12) | val_op2;
+      *val = (val_mnemo << 28) | ((tipo_op1 << 26) & 0x0C000000) | ((tipo_op2 << 24) & 0x03000000) |
+       ((val_op1 << 12) & 0x00FFF000) | (val_op2 & 0x00000FFF);
       break;
    }
    case UN_OP:
    {
-      // TODO: verificar truncamiento y ver signo?
       TIPO_OPERANDO tipo_op;
       int val_op;
       IF_ERR_RETURN(traducir_operando(op1, &val_op, &tipo_op, simbolos));
-      *val = (15 << 28) | (val_mnemo << 24) | (tipo_op << 22) | val_op;
+      //*val = (15 << 28) | (val_mnemo << 24) | (tipo_op << 22) | val_op;
+     // *val= (15 << 28) | ((tipo_op << 22) & 0x00C00000) | (val_op & 0x0000FFFF);
+      *val= (val_mnemo << 24) | ((tipo_op << 22) & 0x00C00000) | (val_op & 0x0000FFFF);
       break;
    }
    case NO_OP:
@@ -93,8 +93,12 @@ error_t traducir_operando(char *op, int *val, TIPO_OPERANDO *tipo, smb_list_t si
       {
          // operador indirecto
          // intenta divir la cadena en el +/-
-         // TODO: cambiar el valor a neg si es -.
          int reg_val, offset_val = 0;
+         int suma;
+         if(strchr(op, '+') != NULL)
+            suma=1; //si hay un +
+          else
+            suma=-1;  //si hay un -
          char *reg = strtok(op, "+-");
          IF_ERR_RETURN(reg_to_int(reg, &reg_val));
          char *offset = strtok(NULL, "+-");
@@ -105,6 +109,7 @@ error_t traducir_operando(char *op, int *val, TIPO_OPERANDO *tipo, smb_list_t si
                if (es_letra(offset[0]))
                {
                   // offset es un simbolo
+                  Mayus(offset);
                   smb_t smb;
                   if (!buscar_simbolo(simbolos, offset, &smb))
                   {
@@ -118,7 +123,7 @@ error_t traducir_operando(char *op, int *val, TIPO_OPERANDO *tipo, smb_list_t si
                   IF_ERR_RETURN(str_to_int(offset, &offset_val));
                }
             }
-
+         offset_val= suma*chequeoOffset(offset_val); //chequeo de truncado por offset de simbolo y aplica el + o -
          *val = (offset_val << 4) | reg_val;
          *tipo = INDIRECTO;
       }
@@ -133,7 +138,7 @@ error_t traducir_operando(char *op, int *val, TIPO_OPERANDO *tipo, smb_list_t si
    else if (es_letra(pri))
    {
 
-      
+
       // reg o simbolo
       smb_t smb;
       if (buscar_simbolo(simbolos, op, &smb))
@@ -292,3 +297,19 @@ void agregar_simbolo(smb_list_t *simbolos, smb_t smb)
    nuevo->sig = *simbolos;
    *simbolos = nuevo;
 }
+
+int chequeoOffset(int offset_val)
+{
+ int aux = offset_val; ;
+
+ if (offset_val > 255) //Si pasa esto el offset tiene mas de 8 bits, ya sea - o +
+ {
+    aux = aux & 0xFF;
+    printf("Warning truncado offset \n");
+ }
+
+ return aux;
+
+}
+
+

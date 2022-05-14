@@ -5,27 +5,27 @@ void print_err_msg(error_t e)
    switch (e)
    {
    case ERR_NUM_INVALIDO:
-      printf("Constante numerica invalida.");
+      printf("ERROR Constante numerica invalida. \n");
       break;
    case ERR_REG_INVALIDO:
-      printf("Registro invalido.");
+      printf("ERROR Registro invalido. \n");
       break;
    case ERR_MNEM_DESCONOCIDO:
-      printf("Nnemonico desconocido.");
+      printf("ERROR Nnemonico desconocido. \n");
       break;
    case ERR_SIMBOLO_DESCONOCIDO:
-      printf("Simbolo desconocido.");
+      printf("ERROR Simbolo desconocido. \n");
       break;
    case ERR_SIMBOLO_DUPLICADO:
-      printf("Simbolo duplicado");
+      printf("ERROR Simbolo duplicado \n");
       break;
    case ERR_CORCHETE_SIN_CERRAR:
-      printf("Se esperaba ']'");
+      printf("ERROR Se esperaba ']' \n");
       break;
    case ERR_SIMBOLO_VALOR_INVALIDO:
-      printf("El valor del simbolo es invalido.");
+      printf("ERROR El valor del simbolo es invalido. \n");
       break;
    default:
-      printf("Error desconocido.");
+      printf("ERROR Error desconocido. \n");
    }
 }

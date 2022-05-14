@@ -9,7 +9,7 @@
 #define EXTENSION_ASM ".asm"     // extension del archivo que contiene el codigo asm.
 #define EXTENSION_BINARIO ".mv2" // extension del archivo binario generado.
 #define MAX_CELDAS_MEM 8192      // maximas celdas de memoria de un programa.
-#define DEFAULT_SEG_SIZE 1024    // tamaÃ±o por defecto de cada uno de los segmentos(menos cs).
+#define DEFAULT_SEG_SIZE 1024    // tamaño por defecto de cada uno de los segmentos(menos cs).
 #define MAX_LINE_LEN 10000       // cantidad maxima de caracteres por linea en el codigo asm.     ??
 #define MAX_PROG_LEN 10000       // cantidad maxima de instrucciones que puede tener un programa. ??
 
@@ -17,22 +17,22 @@
  TODO:
  argumentos (dejar para el final, asi es mas facil de probar)
  escribir binario
- hacer que parser lea todo en mayusc
+ok- hacer que parser lea todo en mayusc
 usar free_line del parser luego de leer??
-verificar los tamaÃ±os de los segmentos
+verificar los tamaños de los segmentos
 */
 
 typedef struct segmentos_t
 {
-   int cs, // tamaÃ±o code seg
-       ds, // tamaÃ±o data seg
-       es, // tamaÃ±o extra seg
-       ss; // tamaÃ±o stack seg
+   int cs, // tamaño code seg
+       ds, // tamaño data seg
+       es, // tamaño extra seg
+       ss; // tamaño stack seg
 } segmentos_t;
 
-const char *path = "test.txt";
+const char *path = "7.txt";
 
-// lee los simbolos(constants, rotulos) y lee las directivas de tamaÃ±o de segmento.
+// lee los simbolos(constants, rotulos) y lee las directivas de tamaño de segmento.
 // devuelve la cantidad de instrucciones leidas
 int leer_simbolos(FILE *archivo, smb_list_t *simbolos, segmentos_t *segmentos);
 
@@ -48,7 +48,7 @@ bool traducir(FILE *archivo, smb_list_t simbolos, int *instrucciones, bool out);
 int resolver_simbolos(smb_list_t simbolos, int cant_instrs, int *instrucciones);
 
 // muestra los valores del programa luego de leer y resolver simbolos.
-// muestra tamaÃ±o de los segmentos, lista de simbolos con sus respectivos valores,
+// muestra tamaño de los segmentos, lista de simbolos con sus respectivos valores,
 // cantidad de instrucciones del programa, y la memoria destinada a almacenar las constantes string.
 void debug_simbolos(smb_list_t simbolos, segmentos_t seg, int *instrucciones, int nro_instrs);
 
@@ -88,12 +88,13 @@ int leer_simbolos(FILE *archivo, smb_list_t *simbolos, segmentos_t *segmentos)
       char **parsed = parse_line(linea);
       if (parsed[CONST] && parsed[CONST_VAL])
       {
+         Mayus(parsed[CONST]);
          agregar_simbolo(simbolos, (smb_t){parsed[CONST], parsed[CONST_VAL]});
       }
 
       if (parsed[SEG] && parsed[SEG_SIZE])
       {
-
+         Mayus(parsed[SEG]);
          if (strcmp(parsed[SEG], "DATA") == 0)
          {
             segmentos->ds = atoi(parsed[SEG_SIZE]);
@@ -114,7 +115,7 @@ int leer_simbolos(FILE *archivo, smb_list_t *simbolos, segmentos_t *segmentos)
 
       if (parsed[LABEL])
       {
-
+         Mayus(parsed[LABEL]);
          smb_t smb;
          smb.nombre = parsed[LABEL];
          // TODO: verificar esto.
@@ -146,6 +147,12 @@ bool traducir(FILE *archivo, smb_list_t simbolos, int *instrucciones, bool out)
       char **parsed = parse_line(linea);
       if (parsed[MNEMO])
       {
+         Mayus(parsed[MNEMO]);
+         if (parsed[OP1]!=NULL)
+          Mayus(parsed[OP1]);
+         if (parsed[OP2]!=NULL)
+          Mayus(parsed[OP2]);
+
          err = traducir_instruccion(parsed[MNEMO], parsed[OP1], parsed[OP2], simbolos, &instruccion_actual);
          if (err)
          {
@@ -158,6 +165,10 @@ bool traducir(FILE *archivo, smb_list_t simbolos, int *instrucciones, bool out)
             printf("%08X  %s", instruccion_actual, linea);
          }
          instrucciones[nro_instruccion++] = instruccion_actual;
+      }
+      else if (parsed[COMENT]) //si hay solo comentario tmb tiene q escribir
+      {
+        printf("%s", linea);
       }
    }
 
@@ -195,7 +206,7 @@ void debug_simbolos(smb_list_t simbolos, segmentos_t segmentos, int *instruccion
 {
    printf("Programa:\n");
    printf("Cantidad de instrucciones: %d\n", nro_instrs);
-   printf("TamaÃ±o de los segmentos: \n");
+   printf("Tamaño de los segmentos: \n");
    printf(" Code: %d \n", segmentos.cs);
    printf(" Data: %d \n", segmentos.ds);
    printf(" Extra: %d\n", segmentos.es);
@@ -227,3 +238,21 @@ void debug_simbolos(smb_list_t simbolos, segmentos_t segmentos, int *instruccion
       i++;
    }
 }
+
+void Mayus(char *cadena){
+    char* letra= cadena;
+    int len;
+    if (letra[0]!='\'')
+    {
+
+       while(*letra!='\0'){
+        if((int)(*letra)>=97 && (int)(*letra)<=122)
+            *letra -= ('a'-'A');
+        *letra++;
+        }
+    }
+
+
+}
+
+
