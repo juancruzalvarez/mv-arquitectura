@@ -20,7 +20,7 @@ error_t traducir_instruccion(char *mnemo, char *op1, char *op2, smb_list_t simbo
    {
    case DOS_OP:
    {
-      // verificar truncamiento y ver signo?
+      // TODO: verificar truncamiento y ver signo?
       TIPO_OPERANDO tipo_op1, tipo_op2;
       int val_op1, val_op2;
 
@@ -34,6 +34,7 @@ error_t traducir_instruccion(char *mnemo, char *op1, char *op2, smb_list_t simbo
    }
    case UN_OP:
    {
+      // TODO: verificar truncamiento y ver signo?
       TIPO_OPERANDO tipo_op;
       int val_op;
       IF_ERR_RETURN(traducir_operando(op1, &val_op, &tipo_op, simbolos));
@@ -73,7 +74,6 @@ error_t traducir_mnemo(char *mnemo, int *val, TIPO_INSTRUCCION *tipo)
 
 error_t traducir_operando(char *op, int *val, TIPO_OPERANDO *tipo, smb_list_t simbolos)
 {
-   error_t e;
    char pri = op[0];
    if (pri == '[')
    {
@@ -110,12 +110,12 @@ error_t traducir_operando(char *op, int *val, TIPO_OPERANDO *tipo, smb_list_t si
                   {
                      return ERR_SIMBOLO_DESCONOCIDO;
                   }
-                  e = valor_simbolo(smb, &offset_val);
+                  IF_ERR_RETURN(valor_simbolo(smb, &offset_val));
                }
                else
                {
                   // offset es un numero
-                  e = str_to_int(offset, &offset_val);
+                  IF_ERR_RETURN(str_to_int(offset, &offset_val));
                }
             }
 
@@ -126,28 +126,29 @@ error_t traducir_operando(char *op, int *val, TIPO_OPERANDO *tipo, smb_list_t si
       {
          // operador directo
          // TODO: se puede poner simbolos??
-         e = str_to_int(op, val);
+         IF_ERR_RETURN(str_to_int(op, val));
          *tipo = DIRECTO;
       }
    }
    else if (es_letra(pri))
    {
 
+      
       // reg o simbolo
       smb_t smb;
       if (buscar_simbolo(simbolos, op, &smb))
       {
-         e = valor_simbolo(smb, val);
+         IF_ERR_RETURN(valor_simbolo(smb, val));
          *tipo = INMEDIATO;
       }
       else
       {
 
-         e = reg_to_int(op, val);
+         error_t err = reg_to_int(op, val);
          // si hubo error aca probablemente es porque se ingreso un simbolo desconocido,
          // entonces buscar_simbolo devolvio false y quizo leerlo como un registro
          // se devuelve SIMBOLO_DESCONOCIDO
-         if (e)
+         if (err)
             return ERR_SIMBOLO_DESCONOCIDO;
          *tipo = REGISTRO;
       }
@@ -155,9 +156,9 @@ error_t traducir_operando(char *op, int *val, TIPO_OPERANDO *tipo, smb_list_t si
    else
    {
       *tipo = INMEDIATO;
-      e = str_to_int(op, val);
+      IF_ERR_RETURN(str_to_int(op, val));
    }
-   return e;
+   return NO_ERR;
 }
 
 error_t str_to_int(char *cad, int *val)
