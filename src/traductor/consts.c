@@ -33,7 +33,6 @@ const nom_val registros[] = {
 
 int get_mnemo_val(char *mnemo)
 {  
-   //ordenar y hacer busq binaria seria mejor
    for(int i = 0; i<CANT_MNEMOS;i++){
       if(strcmp(mnemo, mnemos[i].nom) == 0)
          return mnemos[i].val;

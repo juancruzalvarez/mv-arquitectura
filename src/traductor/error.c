@@ -1,30 +1,31 @@
 #include "error.h"
 #include <stdio.h>
-void print_err_msg(error_t e){
+void print_err_msg(error_t e)
+{
    switch (e)
    {
-   case NUM_INVALIDO:
+   case ERR_NUM_INVALIDO:
       printf("Constante numerica invalida.");
       break;
-   case REG_INVALIDO:
+   case ERR_REG_INVALIDO:
       printf("Registro invalido.");
       break;
-   case MNEM_DESCONOCIDO:
+   case ERR_MNEM_DESCONOCIDO:
       printf("Nnemonico desconocido.");
       break;
-   case SIMBOLO_DESCONOCIDO:
+   case ERR_SIMBOLO_DESCONOCIDO:
       printf("Simbolo desconocido.");
       break;
-   case SIMBOLO_DUPLICADO:
-      printf( "Simbolo duplicado");
+   case ERR_SIMBOLO_DUPLICADO:
+      printf("Simbolo duplicado");
       break;
-   case CORCHETE_SIN_CERRAR:
-     printf("Se esperaba ']'");
-     break;
-   case SIMBOLO_VALOR_INVALIDO:
-     printf("El valor del simbolo es invalido.");
-     break;
+   case ERR_CORCHETE_SIN_CERRAR:
+      printf("Se esperaba ']'");
+      break;
+   case ERR_SIMBOLO_VALOR_INVALIDO:
+      printf("El valor del simbolo es invalido.");
+      break;
    default:
-     printf("Error desconocido.");
+      printf("Error desconocido.");
    }
 }

@@ -6,27 +6,28 @@
 #include "traductor.h"
 #include "parser.h"
 
-#define EXTENSION_ASM ".asm"
-#define EXTENSION_BINARIO ".mv2"
-#define MAX_CELDAS_MEM 8192
-#define DEFAULT_SEG_SIZE 1024
-#define MAX_LINE_LEN 10000 // ???
-#define MAX_PROG_LEN 10000 // ???
+#define EXTENSION_ASM ".asm"     // extension del archivo que contiene el codigo asm.
+#define EXTENSION_BINARIO ".mv2" // extension del archivo binario generado.
+#define MAX_CELDAS_MEM 8192      // maximas celdas de memoria de un programa.
+#define DEFAULT_SEG_SIZE 1024    // tamaño por defecto de cada uno de los segmentos(menos cs).
+#define MAX_LINE_LEN 10000       // cantidad maxima de caracteres por linea en el codigo asm.     ??
+#define MAX_PROG_LEN 10000       // cantidad maxima de instrucciones que puede tener un programa. ??
 
 /*
  TODO:
  argumentos (dejar para el final, asi es mas facil de probar)
  escribir binario
- leer correctamente constantes
  hacer que parser lea todo en mayusc
+usar free_line del parser luego de leer??
+verificar los tamaños de los segmentos
 */
 
 typedef struct segmentos_t
 {
-   int cs,  // tamaño code seg
-       ds,  // tamaño data seg
-       es,  // tamaño extra seg
-       ss;  // tamaño stack seg
+   int cs, // tamaño code seg
+       ds, // tamaño data seg
+       es, // tamaño extra seg
+       ss; // tamaño stack seg
 } segmentos_t;
 
 const char *path = "test.txt";
@@ -46,6 +47,11 @@ bool traducir(FILE *archivo, smb_list_t simbolos, int *instrucciones, bool out);
 //    cant_instrucciones + cantidad de celdas usadas para guardar strings.
 int resolver_simbolos(smb_list_t simbolos, int cant_instrs, int *instrucciones);
 
+// muestra los valores del programa luego de leer y resolver simbolos.
+// muestra tamaño de los segmentos, lista de simbolos con sus respectivos valores,
+// cantidad de instrucciones del programa, y la memoria destinada a almacenar las constantes string.
+void debug_simbolos(smb_list_t simbolos, segmentos_t seg, int *instrucciones, int nro_instrs);
+
 int main()
 {
 
@@ -61,47 +67,16 @@ int main()
       printf("No se pudo abrir el archivo asm.\n");
       exit(-1);
    }
-
-   printf("ok");
    nro_instrs = leer_simbolos(archivo_asm, &simbolos, &segmentos);
    segmentos.cs = resolver_simbolos(simbolos, nro_instrs, instrucciones);
 
-   printf("Programa:\n");
-   printf("Cantidad de instrucciones: %d\n", nro_instrs);
-   printf("Tamaño de los segmentos: \n");
-   printf(" Code: %d \n", segmentos.cs);
-   printf(" Data: %d \n", segmentos.ds);
-   printf(" Extra: %d\n", segmentos.es);
-   printf(" Stack: %d\n", segmentos.ss);
-   printf("Simbolos: \n");
-   node_t *aux = simbolos;
-   while(aux){
-      int val;
-      valor_simbolo(aux->smb, &val);
-      printf(" Simbolo:\n");
-      printf("   Nombre: %s\n", aux->smb.nombre);
-      printf("   Val: %d\n", val);
-      aux = aux->sig;
-   }
-   printf("Memoria luego de instrucciones: (instrucciones[i] con i >= nro_instrs)\n");
-   int i = nro_instrs;
-   while(i<segmentos.cs){
-      printf("[%04d] ", i);
-      if(instrucciones[i] == '\0'){
-         printf("str_end\n");
-      }else{
-         printf("%c\n", instrucciones[i]);
-      }
-      i++;
-   }
-  /* rewind(archivo_asm);
+   rewind(archivo_asm);
    write = traducir(archivo_asm, simbolos, instrucciones, out);
    fclose(archivo_asm);
    if (write)
    {
       // escribir binario
    }
-   */
 }
 
 int leer_simbolos(FILE *archivo, smb_list_t *simbolos, segmentos_t *segmentos)
@@ -113,32 +88,38 @@ int leer_simbolos(FILE *archivo, smb_list_t *simbolos, segmentos_t *segmentos)
       char **parsed = parse_line(linea);
       if (parsed[CONST] && parsed[CONST_VAL])
       {
-         printf("agregar sim\n");
          agregar_simbolo(simbolos, (smb_t){parsed[CONST], parsed[CONST_VAL]});
       }
 
-      if(parsed[SEG] && parsed[SEG_SIZE]){
-         printf("seg size\n");
+      if (parsed[SEG] && parsed[SEG_SIZE])
+      {
 
-         if(strcmp(parsed[SEG], "DATA")==0){
+         if (strcmp(parsed[SEG], "DATA") == 0)
+         {
             segmentos->ds = atoi(parsed[SEG_SIZE]);
-         }else if(strcmp(parsed[SEG], "EXTRA")==0){
+         }
+         else if (strcmp(parsed[SEG], "EXTRA") == 0)
+         {
             segmentos->es = atoi(parsed[SEG_SIZE]);
-         }else if(strcmp(parsed[SEG], "STACK")==0){
+         }
+         else if (strcmp(parsed[SEG], "STACK") == 0)
+         {
             segmentos->ss = atoi(parsed[SEG_SIZE]);
-         }else{
-            //err ?
+         }
+         else
+         {
+            // err ?
          }
       }
 
       if (parsed[LABEL])
       {
-         printf("label sim\n");
 
          smb_t smb;
          smb.nombre = parsed[LABEL];
+         // TODO: verificar esto.
+         smb.val = (char *)malloc(sizeof(char) * 6);
          itoa(nro_instruccion, smb.val, 10);
-                  printf("fter itoa\n");
 
          agregar_simbolo(simbolos, smb);
       }
@@ -191,21 +172,58 @@ int resolver_simbolos(smb_list_t simbolos, int cant_instrs, int *instrucciones)
    {
       if (aux->smb.val[0] == '"')
       {
-         // TODO: agregar '\0' ??? y eliminar comillas??
-
          // es constante string
          int len = strlen(aux->smb.val);
          // guardar en memoria cada caracter de la string.
-         for (int i = 0; i < len; i++)
+         // empieza en 1 y termina en len-1 para eliminar "".
+         for (int i = 1; i < len - 1; i++)
          {
-            instrucciones[pos_mem + i] = aux->smb.val[i];
+            instrucciones[pos_mem + i - 1] = aux->smb.val[i];
          }
+         instrucciones[pos_mem + len - 2] = '\0';
          // guardar como valor del simbolo la posicion de memoria donde fue guardada la string.
          itoa(pos_mem, aux->smb.val, 10);
          // aumentar la posicion de memoria
-         pos_mem += len;
+         pos_mem += len - 1;
       }
       aux = aux->sig;
    }
    return pos_mem;
+}
+
+void debug_simbolos(smb_list_t simbolos, segmentos_t segmentos, int *instrucciones, int nro_instrs)
+{
+   printf("Programa:\n");
+   printf("Cantidad de instrucciones: %d\n", nro_instrs);
+   printf("Tamaño de los segmentos: \n");
+   printf(" Code: %d \n", segmentos.cs);
+   printf(" Data: %d \n", segmentos.ds);
+   printf(" Extra: %d\n", segmentos.es);
+   printf(" Stack: %d\n", segmentos.ss);
+   printf("Simbolos: \n");
+   node_t *aux = simbolos;
+   while (aux)
+   {
+      int val;
+      valor_simbolo(aux->smb, &val);
+      printf(" Simbolo:\n");
+      printf("   Nombre: %s\n", aux->smb.nombre);
+      printf("   Val: %d\n", val);
+      aux = aux->sig;
+   }
+   printf("Memoria luego de instrucciones: (instrucciones[i] con i >= nro_instrs)\n");
+   int i = nro_instrs;
+   while (i < segmentos.cs)
+   {
+      printf("[%04d] ", i);
+      if (instrucciones[i] == '\0')
+      {
+         printf("str_end\n");
+      }
+      else
+      {
+         printf("%c\n", instrucciones[i]);
+      }
+      i++;
+   }
 }

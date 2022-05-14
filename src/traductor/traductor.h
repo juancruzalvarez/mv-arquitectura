@@ -38,7 +38,7 @@ typedef struct node_t
    smb_t smb;
    struct node_t *sig;
 } node_t;
-typedef node_t* smb_list_t;
+typedef node_t *smb_list_t;
 
 // dado cadenas representando un mnemonico, y los dos operadores posibles, traduce la instruccion a codigo de maquina
 // y lo devuelve en *val.
@@ -56,7 +56,7 @@ error_t reg_to_int(char *reg, int *val);
 // dado una cadena que representa un valor numerico(ej: "%32", "#45", "-315"), devuelve un int con el valor.
 error_t str_to_int(char *cad, int *val);
 
-//devuelve el valor guardado por el simbolo.
+// devuelve el valor guardado por el simbolo.
 error_t valor_simbolo(smb_t smb, int *val);
 
 // agrega un simbolo a la lista de simbolos.
