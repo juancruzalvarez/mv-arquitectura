@@ -1,0 +1,10 @@
+simb1 EQU 5
+simb2 EQU 6
+MOV EAX, -5
+MOV EBX, [EAX+3]
+MOV ECX, [EBX-4]
+MOV EDX, [ECX+simb1]
+MOV EEX, [EDX-simb2]
+MOV EFX, [EEX+%8]
+MOV EAX, [EBX]
+

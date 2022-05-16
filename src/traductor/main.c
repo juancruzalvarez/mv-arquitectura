@@ -6,33 +6,32 @@
 #include "traductor.h"
 #include "parser.h"
 
-#define EXTENSION_ASM ".asm"     // extension del archivo que contiene el codigo asm.
-#define EXTENSION_BINARIO ".mv2" // extension del archivo binario generado.
-#define MAX_CELDAS_MEM 8192      // maximas celdas de memoria de un programa.
-#define DEFAULT_SEG_SIZE 1024    // tamaño por defecto de cada uno de los segmentos(menos cs).
-#define MAX_LINE_LEN 10000       // cantidad maxima de caracteres por linea en el codigo asm.     ??
-#define MAX_PROG_LEN 10000       // cantidad maxima de instrucciones que puede tener un programa. ??
+#define EXTENSION_ASM     ".asm"  // extension del archivo que contiene el codigo asm.
+#define EXTENSION_BINARIO ".mv2"  // extension del archivo binario generado.
+#define DEFAULT_SEG_SIZE  1024    // tamaï¿½o por defecto de cada uno de los segmentos(menos cs).
+#define MAX_SEG_SIZE      0xFFFF  // maximo tamaÃ±o permitido para los segmnetos.
+#define MAX_LINE_LEN      10000   // cantidad maxima de caracteres por linea en el codigo asm.     ??
+#define MAX_PROG_LEN      10000   // cantidad maxima de instrucciones que puede tener un programa. ??
 
 /*
  TODO:
- argumentos (dejar para el final, asi es mas facil de probar)
- escribir binario
+ok- argumentos (dejar para el final, asi es mas facil de probar)
+ok- escribir binario
 ok- hacer que parser lea todo en mayusc
 usar free_line del parser luego de leer??
-verificar los tamaños de los segmentos
+ok- verificar los tamaï¿½os de los segmentos
 */
 
 typedef struct segmentos_t
 {
-   int cs, // tamaño code seg
-       ds, // tamaño data seg
-       es, // tamaño extra seg
-       ss; // tamaño stack seg
+   int ds, // tamaï¿½o data seg
+       ss, // tamaï¿½o stack seg
+       es, // tamaï¿½o extra seg
+       cs; // tamaï¿½o code seg
 } segmentos_t;
 
-const char *path = "7.txt";
 
-// lee los simbolos(constants, rotulos) y lee las directivas de tamaño de segmento.
+// lee los simbolos(constants, rotulos) y lee las directivas de tamaï¿½o de segmento.
 // devuelve la cantidad de instrucciones leidas
 int leer_simbolos(FILE *archivo, smb_list_t *simbolos, segmentos_t *segmentos);
 
@@ -48,20 +47,44 @@ bool traducir(FILE *archivo, smb_list_t simbolos, int *instrucciones, bool out);
 int resolver_simbolos(smb_list_t simbolos, int cant_instrs, int *instrucciones);
 
 // muestra los valores del programa luego de leer y resolver simbolos.
-// muestra tamaño de los segmentos, lista de simbolos con sus respectivos valores,
+// muestra tamaï¿½o de los segmentos, lista de simbolos con sus respectivos valores,
 // cantidad de instrucciones del programa, y la memoria destinada a almacenar las constantes string.
 void debug_simbolos(smb_list_t simbolos, segmentos_t seg, int *instrucciones, int nro_instrs);
 
-int main()
+int main(int argc, char **argv)
 {
-
-   FILE *archivo_asm = fopen(path, "rt");
+   char *path_archivo_asm = NULL, *path_archivo_bin = NULL;
+   bool write = FALSE, out = FALSE; 
    smb_list_t simbolos = NULL;
    segmentos_t segmentos = {DEFAULT_SEG_SIZE, DEFAULT_SEG_SIZE, DEFAULT_SEG_SIZE, DEFAULT_SEG_SIZE};
    int instrucciones[MAX_PROG_LEN];
    int nro_instrs = -1;
-   bool write = TRUE, out = TRUE;
 
+   //leer argumentos del programa.
+   for(int i  = 1; i<argc; i++){
+      if(strcmp(argv[i], "-o") == 0){
+         out = TRUE;
+      }else{
+         int n = strlen(argv[i]);
+         if(n<4){
+            printf("%s no es un argumento valido.\n",argv[i]);
+         }
+         char* extension = &(argv[i][n-4]);
+         if(strcmp(extension, EXTENSION_ASM) == 0)
+            path_archivo_asm = argv[i];
+         else if(strcmp(extension, EXTENSION_BINARIO) == 0)
+            path_archivo_bin = argv[i];
+         else{
+            printf("%s no es un argumento valido.\n",argv[i]);
+         }
+      }
+   }
+
+   if(!path_archivo_asm || !path_archivo_bin){
+      printf("Error: no fueron especificados los archivos.\n");
+      exit(-1);
+   }
+   FILE *archivo_asm = fopen(path_archivo_asm, "rt");
    if (!archivo_asm)
    {
       printf("No se pudo abrir el archivo asm.\n");
@@ -69,13 +92,23 @@ int main()
    }
    nro_instrs = leer_simbolos(archivo_asm, &simbolos, &segmentos);
    segmentos.cs = resolver_simbolos(simbolos, nro_instrs, instrucciones);
-
    rewind(archivo_asm);
    write = traducir(archivo_asm, simbolos, instrucciones, out);
    fclose(archivo_asm);
    if (write)
    {
       // escribir binario
+      FILE* archivo_bin = fopen(path_archivo_bin, "wb");
+      if (!archivo_bin)
+      {
+         printf("No se pudo crear el archivo binario.\n");
+         exit(-1);
+      }
+      //escribir header
+      fwrite("MV-2", sizeof(char), 4, archivo_bin);
+      fwrite(&segmentos, sizeof(segmentos_t), 1, archivo_bin);
+      fwrite("V.22", sizeof(char), 4, archivo_bin);
+      fwrite(&instrucciones, sizeof(int), segmentos.cs, archivo_bin);
    }
 }
 
@@ -88,40 +121,42 @@ int leer_simbolos(FILE *archivo, smb_list_t *simbolos, segmentos_t *segmentos)
       char **parsed = parse_line(linea);
       if (parsed[CONST] && parsed[CONST_VAL])
       {
-         Mayus(parsed[CONST]);
          agregar_simbolo(simbolos, (smb_t){parsed[CONST], parsed[CONST_VAL]});
       }
 
       if (parsed[SEG] && parsed[SEG_SIZE])
       {
-         Mayus(parsed[SEG]);
+         int seg_size = atoi(parsed[SEG_SIZE]);
+         if(seg_size>MAX_SEG_SIZE){
+            printf("Error: el maximo tamaÃ±o de segmento permitido es %d.\n", MAX_SEG_SIZE);
+         }else if(seg_size<=0){
+            printf("Error: el tamaÃ±o de segmento debe ser un numero positivo.\n");
+         }
+
          if (strcmp(parsed[SEG], "DATA") == 0)
          {
-            segmentos->ds = atoi(parsed[SEG_SIZE]);
+            segmentos->ds = seg_size;
          }
          else if (strcmp(parsed[SEG], "EXTRA") == 0)
          {
-            segmentos->es = atoi(parsed[SEG_SIZE]);
+            segmentos->es = seg_size;
          }
          else if (strcmp(parsed[SEG], "STACK") == 0)
          {
-            segmentos->ss = atoi(parsed[SEG_SIZE]);
+            segmentos->ss = seg_size;
          }
          else
          {
-            // err ?
+            printf("Error: %s no es el nombre de ningun segmento.\n", parsed[SEG]);
          }
       }
 
       if (parsed[LABEL])
       {
-         Mayus(parsed[LABEL]);
          smb_t smb;
          smb.nombre = parsed[LABEL];
-         // TODO: verificar esto.
          smb.val = (char *)malloc(sizeof(char) * 6);
          itoa(nro_instruccion, smb.val, 10);
-
          agregar_simbolo(simbolos, smb);
       }
 
@@ -147,12 +182,6 @@ bool traducir(FILE *archivo, smb_list_t simbolos, int *instrucciones, bool out)
       char **parsed = parse_line(linea);
       if (parsed[MNEMO])
       {
-         Mayus(parsed[MNEMO]);
-         if (parsed[OP1]!=NULL)
-          Mayus(parsed[OP1]);
-         if (parsed[OP2]!=NULL)
-          Mayus(parsed[OP2]);
-
          err = traducir_instruccion(parsed[MNEMO], parsed[OP1], parsed[OP2], simbolos, &instruccion_actual);
          if (err)
          {
@@ -166,7 +195,7 @@ bool traducir(FILE *archivo, smb_list_t simbolos, int *instrucciones, bool out)
          }
          instrucciones[nro_instruccion++] = instruccion_actual;
       }
-      else if (parsed[COMENT]) //si hay solo comentario tmb tiene q escribir
+      else if (parsed[COMENT] && out) //si hay solo comentario tmb tiene q escribir
       {
         printf("%s", linea);
       }
@@ -206,7 +235,7 @@ void debug_simbolos(smb_list_t simbolos, segmentos_t segmentos, int *instruccion
 {
    printf("Programa:\n");
    printf("Cantidad de instrucciones: %d\n", nro_instrs);
-   printf("Tamaño de los segmentos: \n");
+   printf("Tamaï¿½o de los segmentos: \n");
    printf(" Code: %d \n", segmentos.cs);
    printf(" Data: %d \n", segmentos.ds);
    printf(" Extra: %d\n", segmentos.es);
@@ -239,20 +268,5 @@ void debug_simbolos(smb_list_t simbolos, segmentos_t segmentos, int *instruccion
    }
 }
 
-void Mayus(char *cadena){
-    char* letra= cadena;
-    int len;
-    if (letra[0]!='\'')
-    {
-
-       while(*letra!='\0'){
-        if((int)(*letra)>=97 && (int)(*letra)<=122)
-            *letra -= ('a'-'A');
-        *letra++;
-        }
-    }
-
-
-}
 
 

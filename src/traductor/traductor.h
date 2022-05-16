@@ -71,4 +71,8 @@ bool es_digito(char c);
 // verifica si un caracter es una letra. Solo verifica si es una letra mayuscula, ya que todos los valores se cambian a mayuscula.
 bool es_letra(char c);
 
+// verifica si el valor puede ser representado por la cantidad de bits,
+// si no lo puede representar lo trunca y emite una advertencia.
+int check_trunc(int val, int bits);
+
 #endif

@@ -5,17 +5,16 @@
 #include <string.h>
 #include <stdlib.h>
 #include <errno.h>
+#include <math.h>
 
 #include "consts.h"
-
-// TODO: que traducir operando se fije si la cadena que entra es NULL, error falta operando.
 
 error_t traducir_instruccion(char *mnemo, char *op1, char *op2, smb_list_t simbolos, int *val)
 {
 
    TIPO_INSTRUCCION tipo;
    int val_mnemo;
-   traducir_mnemo(mnemo, &val_mnemo, &tipo);
+   IF_ERR_RETURN(traducir_mnemo(mnemo, &val_mnemo, &tipo));
    switch (tipo)
    {
    case DOS_OP:
@@ -27,8 +26,8 @@ error_t traducir_instruccion(char *mnemo, char *op1, char *op2, smb_list_t simbo
       IF_ERR_RETURN(traducir_operando(op2, &val_op2, &tipo_op2, simbolos));
 
       //*val = (val_mnemo << 28) | (tipo_op1 << 26) | (tipo_op2 << 24) | (val_op1 << 12) | val_op2;
-      *val = (val_mnemo << 28) | ((tipo_op1 << 26) & 0x0C000000) | ((tipo_op2 << 24) & 0x03000000) |
-       ((val_op1 << 12) & 0x00FFF000) | (val_op2 & 0x00000FFF);
+      *val = (val_mnemo << 28) | (tipo_op1 << 26) | (tipo_op2 << 24) |
+             (check_trunc(val_op1, 12) << 12)&0xFFF000 | check_trunc(val_op2, 12)&0xFFF;
       break;
    }
    case UN_OP:
@@ -37,8 +36,8 @@ error_t traducir_instruccion(char *mnemo, char *op1, char *op2, smb_list_t simbo
       int val_op;
       IF_ERR_RETURN(traducir_operando(op1, &val_op, &tipo_op, simbolos));
       //*val = (15 << 28) | (val_mnemo << 24) | (tipo_op << 22) | val_op;
-     // *val= (15 << 28) | ((tipo_op << 22) & 0x00C00000) | (val_op & 0x0000FFFF);
-      *val= (val_mnemo << 24) | ((tipo_op << 22) & 0x00C00000) | (val_op & 0x0000FFFF);
+      // *val= (15 << 28) | ((tipo_op << 22) & 0x00C00000) | (val_op & 0x0000FFFF);
+      *val = (val_mnemo << 24) | (tipo_op << 22) | check_trunc(val_op, 16)&0xFFFF;
       break;
    }
    case NO_OP:
@@ -74,6 +73,8 @@ error_t traducir_mnemo(char *mnemo, int *val, TIPO_INSTRUCCION *tipo)
 
 error_t traducir_operando(char *op, int *val, TIPO_OPERANDO *tipo, smb_list_t simbolos)
 {
+   if(!op)
+      return ERR_OPERADOR_NULO;
    char pri = op[0];
    if (pri == '[')
    {
@@ -92,52 +93,49 @@ error_t traducir_operando(char *op, int *val, TIPO_OPERANDO *tipo, smb_list_t si
       if (es_letra(op[0]))
       {
          // operador indirecto
-         // intenta divir la cadena en el +/-
          int reg_val, offset_val = 0;
-         int suma;
-         if(strchr(op, '+') != NULL)
-            suma=1; //si hay un +
-          else
-            suma=-1;  //si hay un -
+         int signo;
+         if (strchr(op, '+') != NULL)
+            signo = 1; // si hay un +
+         else
+            signo = -1; // si hay un -
+
+         // intenta divir la cadena en el +/-
          char *reg = strtok(op, "+-");
          IF_ERR_RETURN(reg_to_int(reg, &reg_val));
          char *offset = strtok(NULL, "+-");
+         // si se pudo dividir leer el offset
          if (offset)
-            // si se pudo dividir leer el offset
-            if (offset)
+         {
+            if (es_letra(offset[0]))
             {
-               if (es_letra(offset[0]))
+               // offset es un simbolo
+               smb_t smb;
+               if (!buscar_simbolo(simbolos, offset, &smb))
                {
-                  // offset es un simbolo
-                  Mayus(offset);
-                  smb_t smb;
-                  if (!buscar_simbolo(simbolos, offset, &smb))
-                  {
-                     return ERR_SIMBOLO_DESCONOCIDO;
-                  }
-                  IF_ERR_RETURN(valor_simbolo(smb, &offset_val));
+                  return ERR_SIMBOLO_DESCONOCIDO;
                }
-               else
-               {
-                  // offset es un numero
-                  IF_ERR_RETURN(str_to_int(offset, &offset_val));
-               }
+               IF_ERR_RETURN(valor_simbolo(smb, &offset_val));
             }
-         offset_val= suma*chequeoOffset(offset_val); //chequeo de truncado por offset de simbolo y aplica el + o -
+            else
+            {
+               // offset es un numero
+               IF_ERR_RETURN(str_to_int(offset, &offset_val));
+            }
+         }
+         offset_val = signo * check_trunc( offset_val, 8); // chequeo de truncado por offset de simbolo y aplica el + o -
          *val = (offset_val << 4) | reg_val;
          *tipo = INDIRECTO;
       }
       else
       {
          // operador directo
-         // TODO: se puede poner simbolos??
          IF_ERR_RETURN(str_to_int(op, val));
          *tipo = DIRECTO;
       }
    }
    else if (es_letra(pri))
    {
-
 
       // reg o simbolo
       smb_t smb;
@@ -298,18 +296,14 @@ void agregar_simbolo(smb_list_t *simbolos, smb_t smb)
    *simbolos = nuevo;
 }
 
-int chequeoOffset(int offset_val)
+int check_trunc(int val, int bits)
 {
- int aux = offset_val; ;
+   int max_val = pow(2, bits)-1;   //maximo valor representable con la cantidad de bits.
+   if (val > max_val)
+   {
+      printf("Warning: El valor %d no puede ser representado por %d bits, se trunca el operando.\n", val, bits);
+      return val & max_val;
+   }
 
- if (offset_val > 255) //Si pasa esto el offset tiene mas de 8 bits, ya sea - o +
- {
-    aux = aux & 0xFF;
-    printf("Warning truncado offset \n");
- }
-
- return aux;
-
+   return val;
 }
-
-

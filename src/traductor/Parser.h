@@ -14,5 +14,5 @@ enum PARSED{
 };
 char **parse_line(const char *line);
 void free_line(char **parsed);
-
+void str_to_mayusc(char *str);
 #endif
