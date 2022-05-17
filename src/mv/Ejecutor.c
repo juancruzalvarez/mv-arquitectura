@@ -48,16 +48,24 @@ void LeerBinario(MV* maquina, const char* path){
     int aux = 0;
     int header[6];
     fread(header, sizeof(header[0]), 6, archivo);
+
     if(!VerificarHeader(header)){
-        printf("Header invalido.");
+        printf("El formato de archivo es invalido");
         return;
     }
-    for(int i = 0; i<header[1]; i++){
-        fread(&aux, sizeof(aux), 1, archivo);
-        maquina->memoria[i] = aux;
+
+    if (VerificarMemoria(header)){
+        cargarRegistros(header,maquina);
+        //Carga instrucciones
+        for(int i = 0; i<header[4]; i++){
+            fread(&aux, sizeof(aux), 1, archivo);
+            maquina->memoria[i] = aux;
+        }
+    } else{
+        printf("El proceso no puede ser cargador, memoria insuficiente")
     }
 
-    maquina->registros[DS] = header[1];
+    //maquina->registros[DS] = header[1];
     fclose(archivo);
 }
 
@@ -109,7 +117,7 @@ void EjecutarInstruccion(MV* maquina, int instruccion){
             valor = auxvalor;
         Instrucciones_1[codigo_instruccion](maquina,valor,tipo);
     }
-    else{
+    else{ //2 OP
         codigo_instruccion = GetBytes(instruccion,0,1);
 
         tipo=GetBits(instruccion,4,2);
@@ -158,17 +166,40 @@ int GetBits(int num, int i, int n){
 int VerificarHeader (int header[6]){
     char* aux;
     aux = (char*)(&header[0]);
-    if(aux[0]!='M'||aux[1]!='V'||aux[2]!='-'||aux[3]!='1'){
+    if(aux[0]!='M'||aux[1]!='V'||aux[2]!='-'||aux[3]!='2'){
         return 0;
     }
     aux = (char*)(&header[5]);
     if(aux[0]!='V'||aux[1]!='.'||aux[2]!='2'||aux[3]!='2'){
         return 0;
     }
-    if(header[1]<0 || header[1]>=CELDAS_MEMORIA){
+
+    return 1;
+
+}
+
+int VerificarMemoria(header){
+    if(header[1]+header[2]+header[3]>CELDAS_MEMORIA-header[4]){
         return 0;
     }
     return 1;
+}
 
+void cargarRegistros(header,maquina){       //registro= tamaño(parte alta) y posicion(parte baja)
+        //iniciacion de los registros DS,ES,SS y CS
+       maquina->registros[CS]=(header[4]<<16); //CS=0x300A0000 ---> 0x0000300A
+       maquina->registros[DS]=(header[1]<<16)|(maquina->registros[CS]>>16 & 0x0000FFFF);//DS=0x00190000 | CS=0xFFFFA000 --> DS=0x0019000A
+       maquina->registros[ES]=(header[3]<<16)|(maquina->registros[DS]>>16 & 0x0000FFFF);
+       maquina->registros[SS]=(header[2]<<16)|(maquina->registros[ES]>>16 & 0x0000FFFF);
+
+       maquina->registros[HP]=0x00020000;
+       maquina->registros[IP]=0x00030000;
+       maquina->registros[SP]=0x00010000 | (maquina->registros[SS]>>16 & 0x0000FFFF);
+       maquina->registros[BP]=0x00010000; //parte baja no especificada
+
+    }
+    else{
+        printf("El proceso no puede ser cargado por falta de memoria")
+    }
 }
 

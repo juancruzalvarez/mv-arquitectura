@@ -3,6 +3,10 @@
 
 int main()
 {
-    printf("Hello world!\n");
+
+    int aux=0x0F;
+    int aux1=0xF;
+    printf("%0X \n",aux);
+     printf("%0X",aux1);
     return 0;
 }

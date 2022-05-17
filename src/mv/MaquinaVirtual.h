@@ -2,13 +2,13 @@
 #define MAQUINAVIRTUAL_H_INCLUDED
 
 #define CANT_REGISTROS 16
-#define CELDAS_MEMORIA 4096
+#define CELDAS_MEMORIA 8192
 
 
 enum REGISTROS{
-    DS = 0,
-    IP = 5,
-    CC = 8,
+    DS = 0,SS,ES,CS,HP,
+    IP,SP,BP,
+    CC,
     AC,A,B,C,D,E,F
 };
 

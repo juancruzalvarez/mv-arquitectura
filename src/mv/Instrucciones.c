@@ -62,7 +62,8 @@ void Disassemble(MV maquina){
 typedef enum TIPO_OPERADOR {
     INMEDIATO = 0,
     REGISTRO,
-    MEMORIA
+    MEMORIA,
+    INDIRECTO
 }TIPO_OPERADOR;
 
 int GetValor(MV* maquina, int op, int tipo) {
@@ -108,6 +109,14 @@ int GetValor(MV* maquina, int op, int tipo) {
             }else{  //EX (registro entero)
                 res = maquina->registros[op];
             }
+            break;
+        }
+        case INDIRECTO:{
+            int opH= (op & 0xFFFF0000)>>16; //codigo de registro
+            int opL= (op& 0x0000FFFF); //desplazamiento dentro del segmento
+
+            aux= maquina->registros[opH] & 0x0000FFFF; //parte baja del registro (direccion absoluta)
+            res=maquina->memoria[aux+opL];
             break;
         }
 
