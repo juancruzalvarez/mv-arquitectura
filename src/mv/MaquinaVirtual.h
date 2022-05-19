@@ -3,6 +3,7 @@
 
 #define CANT_REGISTROS 16
 #define CELDAS_MEMORIA 8192
+#define CANT_DISCOS 255 //PREGUNTAR
 
 
 enum REGISTROS{
@@ -11,11 +12,20 @@ enum REGISTROS{
     CC,
     AC,A,B,C,D,E,F
 };
-
+typedef struct{
+    int header;
+    int ID; //nro de unidad
+    FILE* arch; //archivo fisico real
+    int cilindros; //cantidad de cilindros
+    int cabezas;
+    int sectores;
+    int tSector; //tamaño del sector
+}VDD;
 
 typedef struct MV{
     int registros[CANT_REGISTROS];
     int memoria[CELDAS_MEMORIA];
+    VDD discos[CANT_DISCOS];
     int flag_break;
     int flag_b;
     int flag_c;

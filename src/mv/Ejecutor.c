@@ -1,5 +1,6 @@
 #include <stdio.h>
 #include <string.h>
+#include <time.h>
 
 #include "Instrucciones.h"
 #include "MaquinaVirtual.h"
@@ -10,6 +11,14 @@ void EjecutarBinario(MV* maquina);
 void EjecutarInstruccion(MV* maquina, int instruccion);
 int GetBytes(int num, int i, int n);
 int GetBits(int num, int i, int n);
+void cargarRegistros(int *, MV*);
+int VerificarMemoria(int *);
+void CargarVDD(char *, MV*, int *);
+
+//DEVUELVE LA POSICION A ACCEDER EN EL VDD
+int posicionVDD(int h, int c, int s,VDD disco);
+
+
 
 int main(int argc, char** argv){
     MV maquina;
@@ -62,7 +71,7 @@ void LeerBinario(MV* maquina, const char* path){
             maquina->memoria[i] = aux;
         }
     } else{
-        printf("El proceso no puede ser cargador, memoria insuficiente")
+        printf("El proceso no puede ser cargador, memoria insuficiente");
     }
 
     //maquina->registros[DS] = header[1];
@@ -178,14 +187,13 @@ int VerificarHeader (int header[6]){
 
 }
 
-int VerificarMemoria(header){
-    if(header[1]+header[2]+header[3]>CELDAS_MEMORIA-header[4]){
+int VerificarMemoria(int header[6]){
+    if(header[1]+header[2]+header[3]>CELDAS_MEMORIA-header[4])
         return 0;
-    }
     return 1;
 }
 
-void cargarRegistros(header,maquina){       //registro= tamaño(parte alta) y posicion(parte baja)
+void cargarRegistros(int header[6], MV* maquina){       //registro= tamaño(parte alta) y posicion(parte baja)
         //iniciacion de los registros DS,ES,SS y CS
        maquina->registros[CS]=(header[4]<<16); //CS=0x300A0000 ---> 0x0000300A
        maquina->registros[DS]=(header[1]<<16)|(maquina->registros[CS]>>16 & 0x0000FFFF);//DS=0x00190000 | CS=0xFFFFA000 --> DS=0x0019000A
@@ -196,10 +204,52 @@ void cargarRegistros(header,maquina){       //registro= tamaño(parte alta) y pos
        maquina->registros[IP]=0x00030000;
        maquina->registros[SP]=0x00010000 | (maquina->registros[SS]>>16 & 0x0000FFFF);
        maquina->registros[BP]=0x00010000; //parte baja no especificada
-
-    }
-    else{
-        printf("El proceso no puede ser cargado por falta de memoria")
-    }
 }
+
+void CargarVDD(char* nomArch, MV* maquina, int* i){ //nombre del archivo como parametro
+    FILE* archivo;
+    archivo=fopen(nomArch,"rb+");
+    if(!archivo){
+        //SI NO EXISTE SE CREA EL DISCO
+        archivo=fopen(nomArch,"wb");
+        //ESCRITURA DEL HEADER
+        int id= 0x56444430;
+        int version=1;
+        int GUID=0;
+        int fecha;
+        int hora;
+        int tipo=1;
+        int tamanio=128;
+        int sector=512;
+        int relleno=0;
+
+        fwrite(&id,sizeof(int),1,archivo); //id
+        fwrite(&version,sizeof(int),1,archivo);//version
+        fwrite(&GUID,sizeof(char),1,archivo);            //sizeof(char) para que lea 1byte
+        fwrite(&fecha,sizeof(int),1,archivo);//fecha
+        fwrite(&hora,sizeof(int),1,archivo);//hora
+        fwrite(&tipo,sizeof(char),1,archivo);//tipo
+        fwrite(&tamanio,sizeof(char),1,archivo);//cilindros
+        fwrite(&tamanio,sizeof(char),1,archivo);//cabezas
+        fwrite(&tamanio,sizeof(char),1,archivo);//sectores
+        fwrite(&sector,sizeof(int),1,archivo);//tamaño del sector
+        fwrite(&relleno,sizeof(char)*211,1,archivo);//relleno
+    }
+
+    //AVANZA EN EL ARCHIVO BINARIO HASTA LOS DATOS QUE QUEREMOS
+    fseek(archivo,33,SEEK_SET);
+
+    //LECTURA DE HEADER
+    fread(&(maquina->discos[*i].cilindros), sizeof(char), 1, archivo);
+    fread(&(maquina->discos[*i].cabezas), sizeof(char), 1, archivo);
+    fread(&(maquina->discos[*i].sectores), sizeof(char), 1, archivo);
+    fread(&(maquina->discos[*i].tSector), sizeof(int), 1, archivo);
+
+    maquina->discos[*i].header=512;
+    maquina->discos[*i].ID=*i;
+    maquina->discos[*i].arch=archivo;
+    fclose(archivo);
+}
+
+
 

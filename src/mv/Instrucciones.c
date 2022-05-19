@@ -18,7 +18,6 @@
 #endif
 
 
-
 void MostrarRangoMemoria(MV maquina, int mem_start, int mem_end){
     for(int i = MAX(0,mem_start);i<=MIN(CELDAS_MEMORIA-1, mem_end);i++){
        printf("%s[%d] %x\n", i == maquina.registros[IP]? ">": " ", i, maquina.memoria[i]);
@@ -111,12 +110,25 @@ int GetValor(MV* maquina, int op, int tipo) {
             }
             break;
         }
-        case INDIRECTO:{
-            int opH= (op & 0xFFFF0000)>>16; //codigo de registro
-            int opL= (op& 0x0000FFFF); //desplazamiento dentro del segmento
+        case INDIRECTO:{ //[EAX] ---> op=0x010B  EAX= 0x00200B  ES=0xF00A0005
+            int reg= op&0xF;
+            int offset= (op>>4)& 0xFF;
+            int regH= (maquina->registros[reg] & 0xFFFF0000)>>16; //codigo de registro
+            int regL= (maquina->registros[reg] & 0x0000FFFF); //desplazamiento dentro del segmento
 
-            aux= maquina->registros[opH] & 0x0000FFFF; //parte baja del registro (direccion absoluta)
-            res=maquina->memoria[aux+opL];
+            aux= maquina->registros[regH] & 0x0000FFFF; //parte baja del registro (direccion absoluta)
+            int memAbs= aux+regL+offset;
+            if(memAbs>=(maquina->registros[DS])&0xFFFF)
+                if(regL<=(maquina->registros[regH]>>16)&0xFFFF)
+                    res=maquina->memoria[memAbs];
+                else{
+                    printf("Segmentation Fault\n");
+                    res=NULL;
+                }
+            else{
+                printf("ERROR!\n"); //Corta ejecucion?
+                res=NULL;
+            }
             break;
         }
 
@@ -429,7 +441,33 @@ void SYS (MV* maquina, int op1, int tipo1){
 
             break;
         }
+        case 0xD:{ //VDD
+            int op= GetValor(maquina,0x2A,REGISTRO); //operacion
+            int cant=GetValor(maquina,0x1A,REGISTRO);//cantidad de sectores a leer
 
+            //obtiene posicion inicial
+            int c=GetValor(maquina,0x2C,REGISTRO); //cilindro
+            int h=GetValor(maquina,0x1C,REGISTRO); //cabeza
+            int s=GetValor(maquina,0x2D,REGISTRO); //sector
+            int id=GetValor(maquina,0x1D,REGISTRO); //unidad de disco
+
+            int buffer= GetValor(maquina,B,REGISTRO);
+
+            switch(op){
+                case 0x00: //CONSULTAR ESTADO
+                    break;
+
+                case 0x02://LECTURA
+                    break;
+
+                case 0x03: //ESCRITURA
+                    break;
+
+                case 0x08: //PARAMETROS
+                    break;
+            }
+        }
+            break;
         case 0xF:{
             //breakpoint
             if(maquina->flag_b){
@@ -441,7 +479,39 @@ void SYS (MV* maquina, int op1, int tipo1){
     }
     maquina->registros[IP]++;
 }
+int posicionVDD(int h, int c, int s,VDD disco){
+    int HD=disco.header; //tamaño del header
+    int C=disco.cilindros; //cant cilindros
+    int S=disco.sectores; //cant sectores
+    int TS=disco.tSector; //tamaño del sector
 
+    return HD + c*C*S*TS + h*S*TS + s*TS;
+}
+
+void lecturaVDD(VDD disco,int posicion, int buffer, int cant,MV* maquina){
+    int aux= (buffer>>16)&0xFFFF; //codigo de registro
+    int offset= buffer&0xFFFF; //desplazamiento
+
+    int reg= maquina->registros[aux];//registro
+    int dirAbs=reg&0xFFFF + offset; //direccion del registro + desplazamiento
+    int celdas= (disco.tSector*cant)/4; //tSector * cant sectores =celdas a rellenar
+
+    //VERIFICA QUE ENTRE EN EL SEGMENTO INDICADO
+    if (dirAbs+celdas<=(reg&0xFFFF)+(reg>>16)&0xFFFF){
+        fseek(disco.arch,posicion,SEEK_SET);//posicion inicial de lectura
+
+        for (int i=0;i<celdas;i++)
+            fread(&(maquina->memoria[dirAbs]), sizeof(int),1,disco.arch);
+
+        SetValor(maquina,0x2A,REGISTRO,0x00);
+        printf("Operacion exitosa\n");
+    }else{
+         SetValor(maquina,0x2A,REGISTRO,0x04);
+        printf("Error de lectura\n");
+    }
+
+}
+void escrituraVDD();
 
 void Breakpoint(MV* maquina){
     maquina->flag_break = 0;
