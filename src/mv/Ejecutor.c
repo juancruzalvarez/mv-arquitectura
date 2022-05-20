@@ -206,6 +206,11 @@ void cargarRegistros(int header[6], MV* maquina){       //registro= tamaño(parte
        maquina->registros[BP]=0x00010000; //parte baja no especificada
 }
 
+void iniciaDiscos(MV* maquina){
+    for (int i=0; i<CANT_DISCOS;i++)
+        maquina->discos[i]=NULL;
+}
+
 void CargarVDD(char* nomArch, MV* maquina, int* i){ //nombre del archivo como parametro
     FILE* archivo;
     archivo=fopen(nomArch,"rb+");
