@@ -3,10 +3,23 @@
 
 int main()
 {
-
-    int aux=0x0F;
-    int aux1=0xF;
-    printf("%0X \n",aux);
-     printf("%0X",aux1);
-    return 0;
+    int hola[128];
+    int prueba[128];
+    for(int i=0; i<128; i++)
+        hola[i]=i;
+    FILE* arch;
+    arch=fopen("prueba.txt","wb");
+    if (arch){
+        fwrite(hola,sizeof(int),128,arch);
+        printf("archivo creado\n");
+    }
+    fclose(arch);
+    arch=fopen("prueba.txt","rb");
+    if (arch){
+        fread(prueba,sizeof(int),128,arch);
+        printf("archivo leido\n");
+    }
+     for(int i=0; i<128; i++)
+        printf("%d \n",prueba[i]);
+    fclose(arch);
 }

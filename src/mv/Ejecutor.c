@@ -208,7 +208,7 @@ void cargarRegistros(int header[6], MV* maquina){       //registro= tamaño(parte
 
 void iniciaDiscos(MV* maquina){
     for (int i=0; i<CANT_DISCOS;i++)
-        maquina->discos[i]=NULL;
+        maquina->discos[i].arch=NULL;
 }
 
 void CargarVDD(char* nomArch, MV* maquina, int* i){ //nombre del archivo como parametro

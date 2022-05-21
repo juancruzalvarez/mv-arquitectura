@@ -453,7 +453,7 @@ void SYS (MV* maquina, int op1, int tipo1){
 
             int buffer= GetValor(maquina,B,REGISTRO);
 
-            if(maquina->discos[id]!=NULL){ //VERIFICA QUE EXISTA EL DISCO
+            if(maquina->discos[id].arch!=NULL){ //VERIFICA QUE EXISTA EL DISCO
 
                 if(op==0x08){ //PARAMETROS
                     SetValor(maquina,0x2C,REGISTRO,maquina->discos[id].cilindros);
@@ -467,19 +467,19 @@ void SYS (MV* maquina, int op1, int tipo1){
                     if(maquina->discos[id].cilindros<=c){ //nro de cilindro supera al maximo
                         SetValor(maquina,0x2A,REGISTRO,0x0B);
                         printf("Numero invalido de cilindro\n");
-                    }elseif(maquina->discos[id].cabezas<=h){ //nro de cabeza supera al maximo
+                    }else if(maquina->discos[id].cabezas<=h){ //nro de cabeza supera al maximo
                         SetValor(maquina,0x2A,REGISTRO,0x0C);
                         printf("Numero invalido de cabeza\n");
-                    }elseif(maquina->discos[id].sectores<=s){ //nro de sector supera al maximo
+                    }else if(maquina->discos[id].sectores<=s){ //nro de sector supera al maximo
                         SetValor(maquina,0x2A,REGISTRO,0x0D);
                         printf("Numero invalido de sector\n");
                     }else{
 
                         if(op==0x03) //ESCRITURA
-                            escrituraVDD(maquina->discos[id],c,h,d,buffer,cant,maquina);
-                        elseif(op==0x02) //LECTURA
-                            lecturaVDD(maquina->discos[id],c,h,d,buffer,cant,maquina);
-                        elseif(op==0x00) //CONSULTA ESTADO
+                            escrituraVDD(maquina->discos[id],c,h,s,buffer,cant,maquina);
+                        else if(op==0x02) //LECTURA
+                            lecturaVDD(maquina->discos[id],c,h,s,buffer,cant,maquina);
+                        else if(op==0x00) //CONSULTA ESTADO
                             //consultarestado
                         else{ //SE INVOCA UNA FUNCION FUERA DE LAS 4 PERMITIDAS
                             SetValor(maquina,0x2A,REGISTRO,0x01);
@@ -519,17 +519,34 @@ void lecturaVDD(VDD disco,int c, int h, int s, int buffer, int cant,MV* maquina)
 
     int reg= maquina->registros[aux];//registro
     int dirAbs=reg&0xFFFF + offset; //direccion del registro + desplazamiento
-    int celdas= (disco.tSector*cant)/4; //tSector * cant sectores =celdas a rellenar
+    int celdas= (disco.tSector*cant)/4;
+    int datoSector[128]; //variable para almacenar los datos del sector
 
     //VERIFICA QUE ENTRE EN EL ESPACIO DE MEMORIA DEL SEGMENTO INDICADO
     if (dirAbs+celdas<=(reg&0xFFFF)+(reg>>16)&0xFFFF){
+
         fseek(disco.arch,posicionVDD(h,c,s,disco),SEEK_SET);//posicion inicial de lectura
-        int sectores=0;
-        for (int i=0;i<celdas;i++){
-            //HACER QUE PASE DE CABEZAL SI SUPERA LA CANTIDAD DE SECTORES
+        int sectores=1; //cantidad de sectores leidos
 
+        for (sectores; sectores<=cant;sectores++){
+            fread(datoSector,sizeof(int),128,disco.arch); //LEE TODO UN SECTOR
+            for (int i=0;i<128;i++) //ALMACENA LOS DATOS EN LA MEMORIA
+                maquina->memoria[dirAbs++]=datoSector[i];
 
-            fread(&(maquina->memoria[dirAbs++]), sizeof(int),1,disco.arch);
+            //UNA VEZ LEIDO EL SECTOR, PASA AL SIGUIENTE Y COMPRUEBA QUE SIGA EN LA CABEZA CORRECTA
+            if(++s==disco.sectores){ //ya no hay sectores en el cilindro
+                h++;    //avanza a la siguiente cabeza
+                s=0;
+                if(h==disco.cabezas){ //supera cantidad de cabezas
+                    c++;
+                    h=0;
+                    if(c==disco.cilindros){ //supera el tamaño del disco
+                        SetValor(maquina,0x1A,REGISTRO,sectores);
+                        sectores=cant+1; //corta la lectura
+                    }
+                }
+            }
+            fseek(disco.arch,posicionVDD(h,c,s,disco),SEEK_SET);//posicion inicial de lectura
         }
         SetValor(maquina,0x2A,REGISTRO,0x00);
         printf("Operacion exitosa\n");
@@ -545,17 +562,42 @@ void escrituraVDD(VDD disco,int c,int h, int s,int buffer, int cant, MV* maquina
 
     int reg= maquina->registros[aux];//registro
     int dirAbs=reg&0xFFFF + offset; //direccion del registro + desplazamiento
-    int celdas= (disco.tSector*cant)/4; //tSector * cant sectores =celdas a rellenar
-
+    int celdas= (disco.tSector*cant)/4;
+    int datoSector[128]; //variable para almacenar los datos que se cargaran
+    int error=0;
     //VERIFICA QUE ENTRE EN EL ESPACIO DE MEMORIA DEL SEGMENTO INDICADO
     if (dirAbs+celdas<=(reg&0xFFFF)+(reg>>16)&0xFFFF){
-        fseek(disco.arch,posicion,SEEK_SET);//posicion inicial de lectura
 
-        for (int i=0;i<celdas;i++)
-            fwrite(&(maquina->memoria[dirAbs++]),sizeof(int),1,disco.arch);
+         fseek(disco.arch,posicionVDD(h,c,s,disco),SEEK_SET);//posicion inicial de lectura
+        int sectores=1; //cantidad de sectores leidos
 
-        SetValor(maquina,0x2A,REGISTRO,0x00);
-        printf("Operacion exitosa\n");
+        for (sectores; sectores<=cant;sectores++){
+            for (int i=0;i<128;i++) //ALMACENA LOS DATOS DE LA MEMORIA
+                datoSector[i]=maquina->memoria[dirAbs++];
+
+            fwrite(datoSector,sizeof(int),128,disco.arch); //CARGA TODO UN SECTOR
+
+            //UNA VEZ CARGADO EL SECTOR, PASA AL SIGUIENTE Y COMPRUEBA QUE SIGA EN LA CABEZA CORRECTA
+            if(++s==disco.sectores){ //ya no hay sectores en el cilindro
+                h++;    //avanza a la siguiente cabeza
+                s=0;
+                if(h==disco.cabezas){ //supera cantidad de cabezas
+                    c++;
+                    h=0;
+                    if(c==disco.cilindros){ //supera el tamaño del disco
+                        SetValor(maquina,0x2A,REGISTRO,0xFF);
+                        error=1;
+                        sectores=cant+1; //corta la lectura
+                    }
+
+                }
+            }
+            fseek(disco.arch,posicionVDD(h,c,s,disco),SEEK_SET);//posicion inicial de lectura
+        }
+        if (!error){
+            SetValor(maquina,0x2A,REGISTRO,0x00);
+            printf("Operacion exitosa\n");
+        }
     }else{
          SetValor(maquina,0x2A,REGISTRO,0xCC);
         printf("Error de escritura\n");
