@@ -461,6 +461,8 @@ void SYS (MV* maquina, int op1, int tipo1){
                     SetValor(maquina,0x2D,REGISTRO,maquina->discos[id].sectores);
                     SetValor(maquina,0x2A,REGISTRO,0x00);
                     printf("Operacion exitosa\n");
+                }else if(op==0x00){ //CONSULTA ESTADO
+                    SetValor(maquina,0x2A,REGISTRO,maquina->discos[id].estado); //carga el estado de la ultima operacion del disco en el AH
                 }else{
 
                     //VALIDACIONES
@@ -479,13 +481,12 @@ void SYS (MV* maquina, int op1, int tipo1){
                             escrituraVDD(maquina->discos[id],c,h,s,buffer,cant,maquina);
                         else if(op==0x02) //LECTURA
                             lecturaVDD(maquina->discos[id],c,h,s,buffer,cant,maquina);
-                        else if(op==0x00) //CONSULTA ESTADO
-                            //consultarestado
                         else{ //SE INVOCA UNA FUNCION FUERA DE LAS 4 PERMITIDAS
                             SetValor(maquina,0x2A,REGISTRO,0x01);
                             printf("Numero invalido de sector\n");
                         }
                     }
+                    maquina->discos[id].estado=GetValor(maquina,0x2A,REGISTRO);
                 }
             }else{
                 SetValor(maquina,0x2A,REGISTRO,0x31);

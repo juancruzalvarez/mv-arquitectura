@@ -20,6 +20,7 @@ typedef struct{
     int cabezas;
     int sectores;
     int tSector; //tamaño del sector
+    int estado;
 }VDD;
 
 typedef struct MV{
