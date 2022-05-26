@@ -39,7 +39,8 @@ void STOP (MV* maquina);
 void Breakpoint(MV* maquina);
 
 int posicionVDD(int,int,int,VDD);
-void lecturaVDD(VDD,int,int,int,MV*);
+void lecturaVDD(VDD disco,int c,int h,int s,int buffer,int cant ,MV* maquina);
+void escrituraVDD(VDD disco,int c, int h, int s, int buffer, int cant,MV* maquina);
 
 typedef void (*F0)(MV*);                       //instruccion 0 operadores
 typedef void (*F1)(MV*, int, int);             //instruccion 1 operador

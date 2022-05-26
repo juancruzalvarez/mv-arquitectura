@@ -27,9 +27,13 @@ int main(int argc, char** argv){
     maquina.flag_d = 0;
     maquina.flag_break = 0;
     maquina.registros[IP] = 0;
+    int idDiscos=0;
     if(argc > 2){
+        iniciaDiscos(maquina);
         for(int i = 2; i<argc;i++){
-            if(strcmp(argv[i], "-b") == 0){
+            if(strstr(argv[i],".vdd")){
+                    CargarVDD(argv[i],&maquina,&idDiscos);
+            }else if(strcmp(argv[i], "-b") == 0){
                 maquina.flag_b = 1;
             }else if(strcmp(argv[i], "-c") == 0){
                 maquina.flag_c = 1;
@@ -208,7 +212,7 @@ void cargarRegistros(int header[6], MV* maquina){       //registro= tamaño(parte
 
 void iniciaDiscos(MV* maquina){
     for (int i=0; i<CANT_DISCOS;i++)
-        maquina->discos[i].arch=NULL;
+        *(maquina->discos[i].nomArch)="";
 }
 
 void CargarVDD(char* nomArch, MV* maquina, int* i){ //nombre del archivo como parametro
@@ -238,7 +242,7 @@ void CargarVDD(char* nomArch, MV* maquina, int* i){ //nombre del archivo como pa
         fwrite(&tamanio,sizeof(char),1,archivo);//cabezas
         fwrite(&tamanio,sizeof(char),1,archivo);//sectores
         fwrite(&sector,sizeof(int),1,archivo);//tamaño del sector
-        fwrite(&relleno,sizeof(char)*211,1,archivo);//relleno
+        fwrite(&relleno,sizeof(char)*472,1,archivo);//relleno
     }
 
     //AVANZA EN EL ARCHIVO BINARIO HASTA LOS DATOS QUE QUEREMOS
@@ -252,7 +256,9 @@ void CargarVDD(char* nomArch, MV* maquina, int* i){ //nombre del archivo como pa
 
     maquina->discos[*i].header=512;
     maquina->discos[*i].ID=*i;
-    maquina->discos[*i].arch=archivo;
+    maquina->discos[*i].nomArch=nomArch;
+    maquina->discos[*i].estado=0x00;
+    (*i)++;
     fclose(archivo);
 }
 

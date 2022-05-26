@@ -12,10 +12,11 @@ enum REGISTROS{
     CC,
     AC,A,B,C,D,E,F
 };
+
 typedef struct{
     int header;
     int ID; //nro de unidad
-    FILE* arch; //archivo fisico real
+    char* nomArch; //nombre archivo fisico real
     int cilindros; //cantidad de cilindros
     int cabezas;
     int sectores;

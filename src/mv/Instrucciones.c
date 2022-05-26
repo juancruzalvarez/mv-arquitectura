@@ -472,8 +472,8 @@ void SCMP(MV *maquina, int op1, int op2, int tipo1, int tipo2)
     }
     int val = 0;
     while (
-        (val = maquina->memoria[pos_memoria1] - maquina->memoria[pos_memoria2]) == 0 
-        && maquina->memoria[pos_memoria1++] != '\0' 
+        (val = maquina->memoria[pos_memoria1] - maquina->memoria[pos_memoria2]) == 0
+        && maquina->memoria[pos_memoria1++] != '\0'
         && maquina->memoria[pos_memoria2++] != '\0'
     );
     ActualizarCC(maquina, val);
@@ -704,35 +704,58 @@ void SYS(MV *maquina, int op1, int tipo1)
 
         break;
     }
-    case 0xD:
-    {                                                 // VDD
-        int op = GetValor(maquina, 0x2A, REGISTRO);   // operacion
-        int cant = GetValor(maquina, 0x1A, REGISTRO); // cantidad de sectores a leer
+    case 0xD:{ //VDD
+            int op= GetValor(maquina,0x2A,REGISTRO); //operacion
+            int cant=GetValor(maquina,0x1A,REGISTRO);//cantidad de sectores a leer
 
-        // obtiene posicion inicial
-        int c = GetValor(maquina, 0x2C, REGISTRO);  // cilindro
-        int h = GetValor(maquina, 0x1C, REGISTRO);  // cabeza
-        int s = GetValor(maquina, 0x2D, REGISTRO);  // sector
-        int id = GetValor(maquina, 0x1D, REGISTRO); // unidad de disco
+            //obtiene posicion inicial
+            int c=GetValor(maquina,0x2C,REGISTRO); //cilindro
+            int h=GetValor(maquina,0x1C,REGISTRO); //cabeza
+            int s=GetValor(maquina,0x2D,REGISTRO); //sector
+            int id=GetValor(maquina,0x1D,REGISTRO); //unidad de disco
 
-        int buffer = GetValor(maquina, B, REGISTRO);
+            int buffer= GetValor(maquina,B,REGISTRO);
 
-        switch (op)
-        {
-        case 0x00: // CONSULTAR ESTADO
-            break;
+            if(*(maquina->discos[id].nomArch)!=""){ //VERIFICA QUE EXISTA EL DISCO
 
-        case 0x02: // LECTURA
-            break;
+                if(op==0x08){ //PARAMETROS
+                    SetValor(maquina,0x2C,REGISTRO,maquina->discos[id].cilindros);
+                    SetValor(maquina,0x1C,REGISTRO,maquina->discos[id].cabezas);
+                    SetValor(maquina,0x2D,REGISTRO,maquina->discos[id].sectores);
+                    SetValor(maquina,0x2A,REGISTRO,0x00);
+                    printf("Operacion exitosa\n");
+                }else if(op==0x00){ //CONSULTA ESTADO
+                    SetValor(maquina,0x2A,REGISTRO,maquina->discos[id].estado); //carga el estado de la ultima operacion del disco en el AH
+                }else{
 
-        case 0x03: // ESCRITURA
-            break;
-
-        case 0x08: // PARAMETROS
-            break;
+                    //VALIDACIONES
+                    if(maquina->discos[id].cilindros<=c){ //nro de cilindro supera al maximo
+                        SetValor(maquina,0x2A,REGISTRO,0x0B);
+                        printf("Numero invalido de cilindro\n");
+                    }else if(maquina->discos[id].cabezas<=h){ //nro de cabeza supera al maximo
+                        SetValor(maquina,0x2A,REGISTRO,0x0C);
+                        printf("Numero invalido de cabeza\n");
+                    }else if(maquina->discos[id].sectores<=s){ //nro de sector supera al maximo
+                        SetValor(maquina,0x2A,REGISTRO,0x0D);
+                        printf("Numero invalido de sector\n");
+                    }else{
+                        if(op==0x03) //ESCRITURA
+                            escrituraVDD(maquina->discos[id],c,h,s,buffer,cant,maquina);
+                        else if(op==0x02) //LECTURA
+                            lecturaVDD(maquina->discos[id],c,h,s,buffer,cant,maquina);
+                        else{ //SE INVOCA UNA FUNCION FUERA DE LAS 4 PERMITIDAS
+                            SetValor(maquina,0x2A,REGISTRO,0x01);
+                            printf("Numero invalido de sector\n");
+                        }
+                    }
+                    maquina->discos[id].estado=GetValor(maquina,0x2A,REGISTRO);
+                }
+            }else{
+                SetValor(maquina,0x2A,REGISTRO,0x31);
+                printf("No existe el disco\n");
+            }
         }
-    }
-    break;
+        break;
     case 0xF:
     {
         // breakpoint
@@ -747,43 +770,110 @@ void SYS(MV *maquina, int op1, int tipo1)
     maquina->registros[IP]++;
 }
 
-int posicionVDD(int h, int c, int s, VDD disco)
-{
-    int HD = disco.header;   // tama�o del header
-    int C = disco.cilindros; // cant cilindros
-    int S = disco.sectores;  // cant sectores
-    int TS = disco.tSector;  // tama�o del sector
+int posicionVDD(int h, int c, int s,VDD disco){
+    int HD=disco.header; //tamaño del header
+    int C=disco.cilindros; //cant cilindros
+    int S=disco.sectores; //cant sectores
+    int TS=disco.tSector; //tamaño del sector
 
-    return HD + c * C * S * TS + h * S * TS + s * TS;
+    return HD + c*C*S*TS + h*S*TS + s*TS;
 }
 
-void lecturaVDD(VDD disco, int posicion, int buffer, int cant, MV *maquina)
-{
-    int aux = (buffer >> 16) & 0xFFFF; // codigo de registro
-    int offset = buffer & 0xFFFF;      // desplazamiento
+void lecturaVDD(VDD disco,int c, int h, int s, int buffer, int cant,MV* maquina){
+    FILE *arch=fopen(disco.nomArch,"rb");
+    int aux= (buffer>>16)&0xFFFF; //codigo de registro
+    int offset= buffer&0xFFFF; //desplazamiento
 
-    int reg = maquina->registros[aux];       // registro
-    int dirAbs = reg & 0xFFFF + offset;      // direccion del registro + desplazamiento
-    int celdas = (disco.tSector * cant) / 4; // tSector * cant sectores =celdas a rellenar
+    int reg= maquina->registros[aux];//registro
+    int dirAbs=reg&0xFFFF + offset; //direccion del registro + desplazamiento
+    int celdas= (disco.tSector*cant)/4;
+    int datoSector[128]; //variable para almacenar los datos del sector
 
-    // VERIFICA QUE ENTRE EN EL SEGMENTO INDICADO
-    if (dirAbs + celdas <= (reg & 0xFFFF) + (reg >> 16) & 0xFFFF)
-    {
-        fseek(disco.arch, posicion, SEEK_SET); // posicion inicial de lectura
+    //VERIFICA QUE ENTRE EN EL ESPACIO DE MEMORIA DEL SEGMENTO INDICADO
+    if (dirAbs+celdas<=(reg&0xFFFF)+(reg>>16)&0xFFFF){
 
-        for (int i = 0; i < celdas; i++)
-            fread(&(maquina->memoria[dirAbs]), sizeof(int), 1, disco.arch);
+        fseek(arch,posicionVDD(h,c,s,disco),SEEK_SET);//posicion inicial de lectura
+        int sectores=1; //cantidad de sectores leidos
 
-        SetValor(maquina, 0x2A, REGISTRO, 0x00);
+        while (sectores<=cant){
+            fread(datoSector,sizeof(int),128,arch); //LEE TODO UN SECTOR
+            for (int i=0;i<128;i++) //ALMACENA LOS DATOS EN LA MEMORIA
+                maquina->memoria[dirAbs++]=datoSector[i];
+
+            //UNA VEZ LEIDO EL SECTOR, PASA AL SIGUIENTE Y COMPRUEBA QUE SIGA EN LA CABEZA CORRECTA
+            if(++s==disco.sectores){ //ya no hay sectores en la cabeza
+                h++;    //avanza a la siguiente cabeza
+                s=0;
+                if(h==disco.cabezas){ //supera cantidad de cabezas
+                    c++;
+                    h=0;
+                    if(c==disco.cilindros){ //supera el tamaño del disco
+                        SetValor(maquina,0x1A,REGISTRO,sectores);
+                        sectores=cant+1; //corta la lectura
+                    }
+                }
+            }
+            fseek(arch,posicionVDD(h,c,s,disco),SEEK_SET);//posicion inicial de lectura
+            sectores++;
+        }
+        SetValor(maquina,0x2A,REGISTRO,0x00);
         printf("Operacion exitosa\n");
-    }
-    else
-    {
-        SetValor(maquina, 0x2A, REGISTRO, 0x04);
+    }else{
+         SetValor(maquina,0x2A,REGISTRO,0x04);
         printf("Error de lectura\n");
     }
+    fclose(arch);
 }
-void escrituraVDD();
+void escrituraVDD(VDD disco,int c,int h, int s,int buffer, int cant, MV* maquina){
+    FILE *arch=fopen(disco.nomArch,"ab");
+    int aux= (buffer>>16)&0xFFFF; //codigo de registro
+    int offset= buffer&0xFFFF; //desplazamiento
+
+    int reg= maquina->registros[aux];//registro
+    int dirAbs=reg&0xFFFF + offset; //direccion del registro + desplazamiento
+    int celdas= (disco.tSector*cant)/4;
+    int datoSector[128]; //variable para almacenar los datos que se cargaran
+    int error=0;
+    //VERIFICA QUE ENTRE EN EL ESPACIO DE MEMORIA DEL SEGMENTO INDICADO
+    if (dirAbs+celdas<=(reg&0xFFFF)+(reg>>16)&0xFFFF){
+
+         fseek(arch,posicionVDD(h,c,s,disco),SEEK_SET);//posicion inicial de lectura
+        int sectores=1; //cantidad de sectores leidos
+
+        while (sectores<=cant){
+            for (int i=0;i<128;i++) //ALMACENA LOS DATOS DE LA MEMORIA
+                datoSector[i]=maquina->memoria[dirAbs++];
+
+            fwrite(datoSector,sizeof(int),128,arch); //CARGA TODO UN SECTOR
+
+            //UNA VEZ CARGADO EL SECTOR, PASA AL SIGUIENTE Y COMPRUEBA QUE SIGA EN LA CABEZA CORRECTA
+            if(++s==disco.sectores){ //ya no hay sectores en el cilindro
+                h++;    //avanza a la siguiente cabeza
+                s=0;
+                if(h==disco.cabezas){ //supera cantidad de cabezas
+                    c++;
+                    h=0;
+                    if(c==disco.cilindros){ //supera el tamaño del disco
+                        SetValor(maquina,0x2A,REGISTRO,0xFF);
+                        error=1;
+                        sectores=cant+1; //corta la lectura
+                    }
+
+                }
+            }
+            fseek(arch,posicionVDD(h,c,s,disco),SEEK_SET);//posicion inicial de lectura
+            sectores++;
+        }
+        if (!error){
+            SetValor(maquina,0x2A,REGISTRO,0x00);
+            printf("Operacion exitosa\n");
+        }
+    }else{
+         SetValor(maquina,0x2A,REGISTRO,0xCC);
+        printf("Error de escritura\n");
+    }
+    fclose(arch);
+}
 
 void Breakpoint(MV *maquina)
 {
