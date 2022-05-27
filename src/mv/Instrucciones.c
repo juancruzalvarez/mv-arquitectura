@@ -652,7 +652,7 @@ void SYS(MV *maquina, int op1, int tipo1)
 
         if (write_prompt && config & 0x100)
         {
-            printf("[%04d] ", mem_start);
+            printf("[%04d]: ", mem_start);
         }
         for (int i = 0; i < n; i++)
         {
@@ -667,7 +667,7 @@ void SYS(MV *maquina, int op1, int tipo1)
             {
                 if (write_prompt)
                 {
-                    printf("[%04d] ", mem_start + i);
+                    printf("[%04d]: ", mem_start + i);
                 }
                 scanf((config & 0x008) ? "%x" : ((config & 0x004) ? "%o" : "%d"), &aux);
             }
@@ -691,7 +691,7 @@ void SYS(MV *maquina, int op1, int tipo1)
             val = GetValor(maquina, mem_start + i, MEMORIA);
             if (write_prompt)
             {
-                printf("[%04d] ", mem_start + i);
+                printf("[%04d]: ", mem_start + i);
             }
 
             config & 0x10 ? printf("%c ", val & 0xFF) : printf(" ");
@@ -704,6 +704,74 @@ void SYS(MV *maquina, int op1, int tipo1)
 
         break;
     }
+    case 0x3:{ //LEER CADENAS
+
+        //INDIRECCION                                                           //  EDX=0x00020019
+        int buffer= GetValor(maquina,D,REGISTRO);                               //  ES=00300010
+        int codSeg=(buffer>>16) & 0xFFFF; //parte alta
+        int desp=buffer & 0xFFFF; //parte baja                                  // DIR ABSOLUTA= 10 + 19 = 29
+        int posSeg=(maquina->registros[codSeg])&0xFFFF;
+        int dirAbs=posSeg + desp;
+
+
+        int n=GetValor(maquina,0x3C,REGISTRO);
+
+        //RECOLECTA FORMATO
+        int config=GetValor(maquina,0x3A,REGISTRO);
+        int prompt = (config & 0x800)>>11; //Verifica el bit 11 del AX
+
+
+        char* aux=NULL;
+        int i=0;
+        if(prompt==0)
+            printf("[%04d]: ", dirAbs);
+        scanf("%s",&aux);
+
+        while(i<n){
+            if(i==n-1){     //guarda \0 en la ultima posicion
+                maquina->memoria[dirAbs+i]='\0';
+            }
+            else{
+                maquina->memoria[dirAbs+i]= aux[i];
+                if (aux[i] == '\n' || aux[i] == '\0')
+                    i=n;
+            }
+            i++;
+        }
+    }
+        break;
+    case 0x4:{ //ESCRIBIR CADENAS
+
+        //INDIRECCION
+        int buffer= GetValor(maquina,D,REGISTRO);
+        int codSeg=(buffer>>16) & 0xFFFF; //parte alta
+        int desp=buffer & 0xFFFF; //parte baja
+        int posSeg=(maquina->registros[codSeg])&0xFFFF;
+        int dirAbs=posSeg + desp;
+
+        //RECOLECTA TAMAÑO DE CADENA
+        int n=GetValor(maquina,0x3C,REGISTRO);
+
+         //RECOLECTA FORMATO
+        int config=GetValor(maquina,0x3A,REGISTRO);
+        int prompt = (config & 0x800)>>11; //Verifica el bit 12 del AX
+        int endln=(config&0x100)>>8; //Verifica el bit 9 del AX
+
+        int i=0;
+        while(i<n){
+            if(prompt==0)
+                printf("[%04d]: ", dirAbs);
+            printf("%c",maquina->memoria[dirAbs+i]&0xFF);
+            if(endln==0)
+                printf("\n");
+            if(maquina->memoria[dirAbs+i]&0xFF == '\n')
+                i=n;
+            i++;
+        }
+
+    }
+        break;
+
     case 0xD:{ //VDD
             int op= GetValor(maquina,0x2A,REGISTRO); //operacion
             int cant=GetValor(maquina,0x1A,REGISTRO);//cantidad de sectores a leer
