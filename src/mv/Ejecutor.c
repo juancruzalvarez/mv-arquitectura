@@ -1,6 +1,7 @@
 #include <stdio.h>
 #include <string.h>
 #include <time.h>
+#include <stdlib.h>
 
 #include "Instrucciones.h"
 #include "MaquinaVirtual.h"
@@ -214,6 +215,16 @@ void iniciaDiscos(MV* maquina){
     for (int i=0; i<CANT_DISCOS;i++)
         *(maquina->discos[i].nomArch)="";
 }
+char generaGUID(){
+int i,n=31;
+char posiblesCar[16]="0123456789abcdef",guid[32];
+int random;
+ for(i=0;i<=n;i++){
+    random=rand()%16;
+   guid[i]=posiblesCar[random];
+ }
+ return *guid;
+}
 
 void CargarVDD(char* nomArch, MV* maquina, int* i){ //nombre del archivo como parametro
     FILE* archivo;
@@ -224,13 +235,22 @@ void CargarVDD(char* nomArch, MV* maquina, int* i){ //nombre del archivo como pa
         //ESCRITURA DEL HEADER
         int id= 0x56444430;
         int version=1;
-        int GUID=0;
-        int fecha;
-        int hora;
+        char GUID=generaGUID();
+        char* fecha;
+        char* hora;
         int tipo=1;
         int tamanio=128;
         int sector=512;
         int relleno=0;
+
+        time_t t;
+        struct tm *tm;
+        t=time(NULL);
+        tm=localtime(&t);
+        strftime(fecha, 8, "%Y%m%d", tm);
+        strftime(hora, 8, "%H%M%S", tm);
+
+
 
         fwrite(&id,sizeof(int),1,archivo); //id
         fwrite(&version,sizeof(int),1,archivo);//version
