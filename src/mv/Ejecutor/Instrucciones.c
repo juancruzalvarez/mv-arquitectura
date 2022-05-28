@@ -824,6 +824,9 @@ void SYS(MV *maquina, int op1, int tipo1)
             }
         }
         break;
+    case 0x7:
+        ClearScreen();
+        break;
     case 0xF:
     {
         // breakpoint

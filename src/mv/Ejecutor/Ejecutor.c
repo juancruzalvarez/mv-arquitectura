@@ -218,13 +218,13 @@ void iniciaDiscos(MV* maquina){
 }
 
 void generaGUID(char* guid){
-int i,n=31;
-char posiblesCar[16]="0123456789abcdef";
-int random;
- for(i=0;i<=n;i++){
-    random=rand()%16;
-   guid[i]=posiblesCar[random];
- }
+    int i,n=34;
+    char posiblesCar[17]="0123456789abcdef";
+    int random;
+    for(i=0;i<=n;i++){
+        random=rand()%16;
+        guid[i]=posiblesCar[random];
+    }
 }
 
 void CargarVDD(char* nomArch, MV* maquina, int* i){ //nombre del archivo como parametro
@@ -237,26 +237,29 @@ void CargarVDD(char* nomArch, MV* maquina, int* i){ //nombre del archivo como pa
         //ESCRITURA DEL HEADER
         int id= 0x56444430;
         int version=1;
-        char GUID[32];
+        char GUID[34];
         generaGUID(GUID);
+        char fechayhora[8];
         char* fecha;
         char* hora;
+
         int tipo=1;
         int tamanio=128;
         int sector=512;
         int relleno=0;
 
-        //HABILITA TIEMPO
+        //AGREGA FECHA Y HORA ACTUAL
         time_t t;
         struct tm *tm;
         t=time(NULL);
         tm=localtime(&t);
-        strftime(fecha, 8, "%Y%m%d", tm);
-        strftime(hora, 8, "%H%M%S", tm);
+        strftime(fechayhora, 20, "%d%m%Y,%H%M%S,", tm);
+        fecha=strtok(fechayhora,",");
+        hora=strtok(NULL,",");
 
         fwrite(&id,sizeof(int),1,archivo); //id
         fwrite(&version,sizeof(int),1,archivo);//version
-        fwrite(&GUID,sizeof(char),1,archivo);            //sizeof(char) para que lea 1byte
+        fwrite(&GUID,sizeof(int)*4,1,archivo);            //sizeof(char) para que lea 1byte
         fwrite(&fecha,sizeof(int),1,archivo);//fecha
         fwrite(&hora,sizeof(int),1,archivo);//hora
         fwrite(&tipo,sizeof(char),1,archivo);//tipo

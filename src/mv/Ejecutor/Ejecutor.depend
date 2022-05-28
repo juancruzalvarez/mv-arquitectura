@@ -1,6 +1,7 @@
 # depslib dependency file v1.0
-1653582519 source:c:\users\lauty\desktop\facultad\arquitectura de computadoras\mv-arquitectura\src\mv\ejecutor\ejecutor.c
+1653699967 source:c:\users\lauty\desktop\facultad\arquitectura de computadoras\mv-arquitectura\src\mv\ejecutor\ejecutor.c
 	<stdio.h>
+	<stdlib.h>
 	<string.h>
 	<time.h>
 	"Instrucciones.h"
@@ -11,7 +12,7 @@
 
 1653581555 c:\users\lauty\desktop\facultad\arquitectura de computadoras\mv-arquitectura\src\mv\ejecutor\maquinavirtual.h
 
-1653591904 source:c:\users\lauty\desktop\facultad\arquitectura de computadoras\mv-arquitectura\src\mv\ejecutor\instrucciones.c
+1653700655 source:c:\users\lauty\desktop\facultad\arquitectura de computadoras\mv-arquitectura\src\mv\ejecutor\instrucciones.c
 	<stdlib.h>
 	<stdio.h>
 	<math.h>
