@@ -20,7 +20,7 @@ typedef struct{
     int cilindros; //cantidad de cilindros
     int cabezas;
     int sectores;
-    int tSector; //tamaño del sector
+    int tSector; //tamaï¿½o del sector
     int estado;
 }VDD;
 
