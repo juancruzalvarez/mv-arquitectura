@@ -285,6 +285,7 @@ void CargarVDD(char* nomArch, MV* maquina, int* i){ //nombre del archivo como pa
     maquina->discos[*i].estado=0x00;
     (*i)++;
     fclose(archivo);
+    printf("Disco %d cargado",*);
 }
 
 
