@@ -680,7 +680,7 @@ void SYS(MV *maquina, int op1, int tipo1)
     {
         // printf("write\n");
         // write
-        int mem_start = GetValor(maquina, D, 0x01);
+        int mem_start = GetValor(maquina, D, 0x01); //tendria que ser indireccion?
         int n = GetValor(maquina, 0x3C, 0x01);
         int config = GetValor(maquina, 0x3A, 0x01);
         int write_prompt = !(config & 0x800);
@@ -784,7 +784,7 @@ void SYS(MV *maquina, int op1, int tipo1)
 
             int buffer= GetValor(maquina,B,REGISTRO);
 
-            if(*(maquina->discos[id].nomArch)!=""){ //VERIFICA QUE EXISTA EL DISCO
+            if(strcmp(maquina->discos[id].nomArch,"")!=0){ //VERIFICA QUE EXISTA EL DISCO
 
                 if(op==0x08){ //PARAMETROS
                     SetValor(maquina,0x2C,REGISTRO,maquina->discos[id].cilindros);
@@ -823,6 +823,9 @@ void SYS(MV *maquina, int op1, int tipo1)
                 printf("No existe el disco\n");
             }
         }
+        break;
+    case 0x7:
+        ClearScreen();
         break;
     case 0xF:
     {

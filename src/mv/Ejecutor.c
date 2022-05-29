@@ -1,4 +1,5 @@
 #include <stdio.h>
+#include <stdlib.h>
 #include <string.h>
 #include <time.h>
 
@@ -14,6 +15,7 @@ int GetBits(int num, int i, int n);
 void cargarRegistros(int *, MV*);
 int VerificarMemoria(int *);
 void CargarVDD(char *, MV*, int *);
+void iniciaDiscos(MV*);
 
 //DEVUELVE LA POSICION A ACCEDER EN EL VDD
 int posicionVDD(int h, int c, int s,VDD disco);
@@ -29,7 +31,7 @@ int main(int argc, char** argv){
     maquina.registros[IP] = 0;
     int idDiscos=0;
     if(argc > 2){
-        iniciaDiscos(maquina);
+        iniciaDiscos(&maquina);
         for(int i = 2; i<argc;i++){
             if(strstr(argv[i],".vdd")){
                     CargarVDD(argv[i],&maquina,&idDiscos);
@@ -197,7 +199,7 @@ int VerificarMemoria(int header[6]){
     return 1;
 }
 
-void cargarRegistros(int header[6], MV* maquina){       //registro= tamaño(parte alta) y posicion(parte baja)
+void cargarRegistros(int header[6], MV* maquina){       //registro= tamaï¿½o(parte alta) y posicion(parte baja)
         //iniciacion de los registros DS,ES,SS y CS
        maquina->registros[CS]=(header[4]<<16); //CS=0x300A0000 ---> 0x0000300A
        maquina->registros[DS]=(header[1]<<16)|(maquina->registros[CS]>>16 & 0x0000FFFF);//DS=0x00190000 | CS=0xFFFFA000 --> DS=0x0019000A
@@ -212,7 +214,17 @@ void cargarRegistros(int header[6], MV* maquina){       //registro= tamaño(parte
 
 void iniciaDiscos(MV* maquina){
     for (int i=0; i<CANT_DISCOS;i++)
-        *(maquina->discos[i].nomArch)="";
+        strcpy(maquina->discos[i].nomArch,"");
+}
+
+void generaGUID(char* guid){
+    int i,n=34;
+    char posiblesCar[17]="0123456789abcdef";
+    int random;
+    for(i=0;i<=n;i++){
+        random=rand()%16;
+        guid[i]=posiblesCar[random];
+    }
 }
 
 void CargarVDD(char* nomArch, MV* maquina, int* i){ //nombre del archivo como parametro
@@ -221,27 +233,40 @@ void CargarVDD(char* nomArch, MV* maquina, int* i){ //nombre del archivo como pa
     if(!archivo){
         //SI NO EXISTE SE CREA EL DISCO
         archivo=fopen(nomArch,"wb");
+
         //ESCRITURA DEL HEADER
         int id= 0x56444430;
         int version=1;
-        int GUID=0;
-        int fecha;
-        int hora;
+        char GUID[34];
+        generaGUID(GUID);
+        char fechayhora[8];
+        char* fecha;
+        char* hora;
+
         int tipo=1;
         int tamanio=128;
         int sector=512;
         int relleno=0;
 
+        //AGREGA FECHA Y HORA ACTUAL
+        time_t t;
+        struct tm *tm;
+        t=time(NULL);
+        tm=localtime(&t);
+        strftime(fechayhora, 20, "%d%m%Y,%H%M%S,", tm);
+        fecha=strtok(fechayhora,",");
+        hora=strtok(NULL,",");
+
         fwrite(&id,sizeof(int),1,archivo); //id
         fwrite(&version,sizeof(int),1,archivo);//version
-        fwrite(&GUID,sizeof(char),1,archivo);            //sizeof(char) para que lea 1byte
+        fwrite(&GUID,sizeof(int)*4,1,archivo);            //sizeof(char) para que lea 1byte
         fwrite(&fecha,sizeof(int),1,archivo);//fecha
         fwrite(&hora,sizeof(int),1,archivo);//hora
         fwrite(&tipo,sizeof(char),1,archivo);//tipo
         fwrite(&tamanio,sizeof(char),1,archivo);//cilindros
         fwrite(&tamanio,sizeof(char),1,archivo);//cabezas
         fwrite(&tamanio,sizeof(char),1,archivo);//sectores
-        fwrite(&sector,sizeof(int),1,archivo);//tamaño del sector
+        fwrite(&sector,sizeof(int),1,archivo);//tamaï¿½o del sector
         fwrite(&relleno,sizeof(char)*472,1,archivo);//relleno
     }
 
@@ -256,10 +281,11 @@ void CargarVDD(char* nomArch, MV* maquina, int* i){ //nombre del archivo como pa
 
     maquina->discos[*i].header=512;
     maquina->discos[*i].ID=*i;
-    maquina->discos[*i].nomArch=nomArch;
+    strcpy(maquina->discos[*i].nomArch,nomArch);
     maquina->discos[*i].estado=0x00;
     (*i)++;
     fclose(archivo);
+    printf("Disco %d cargado",*i);
 }
 
 
